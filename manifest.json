@@ -11,23 +11,32 @@
       "js": [
         "content.js",
         "reviewButtonVerified.js",
-        "scraper.js"
+        "scraper.js",
+		"auth.js"
       ]
     }
   ],
   "host_permissions": [
     "http://localhost:5000/*",
-    "http://127.0.0.1:5000/*"
+    "http://127.0.0.1:5000/*",
+	"https://*.firebaseapp.com/*",
+    "https://*.firebaseio.com/*",
+    "https://*.googleapis.com/*",
+    "https://securetoken.googleapis.com/*"
   ],
 
   "web_accessible_resources": [
     {
-      "resources": ["reviewPopup.html", "addReviewPopup.html", "popUpStyle.css", "popUpStyle-mjob.css"],
+      "resources": ["reviewPopup.html", "addReviewPopup.html", "auth.html", "popUpStyle.css", "popUpStyle-mjob.css"],
       "matches": ["<all_urls>"]
     }
   ],
 
   "action": {
     "default_popup": "popup.html"
-  }
+  },
+  "permissions": [
+    "activeTab",
+    "storage"
+  ]
 }

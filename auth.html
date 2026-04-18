@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Firebase Auth</h1>
+
+    <!-- The div where FirebaseUI will render its sign-in widget -->
+    <div id="firebaseui-auth-container"></div>
+
+    <div id="logged-in-view">
+        <h2>Welcome!</h2>
+        <p>User: <span id="userName"></span></p>
+        <p>UID: <span id="userUid"></span></p>
+        <button id="signOut">Sign Out</button>
+    </div>
+
+    <p class="message" id="authMessage"></p>
+
+    <script type="module" src="auth.js"></script>
+</body>
+</html>
