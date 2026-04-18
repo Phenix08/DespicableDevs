@@ -36,12 +36,72 @@ function injectButton() {
     });
 }
 
+function extractWebsiteStyles() {
+    // Extract styles from the website to match its aesthetic
+    const rootStyle = window.getComputedStyle(document.documentElement);
+
+    const rootPrimary = rootStyle.getPropertyValue('--primary').trim();
+    const rootText = rootStyle.getPropertyValue('--dark').trim() || rootStyle.getPropertyValue('--gray-dark').trim();
+    const rootFont = rootStyle.getPropertyValue('--font-family-sans-serif').trim();
+    const rootBackground = rootStyle.getPropertyValue('--light').trim();
+    const rootBorder = rootStyle.getPropertyValue('--gray').trim();
+
+    let primaryColor = rootPrimary || '#8BC832';
+    let textColor = rootText || '#000000';
+    let fontFamily = rootFont || 'Montserrat, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+    let backgroundColor = rootBackground || '#F0F3F5';
+    let borderColor = rootBorder || '#dfe3e8';
+
+    try {
+        const bodyStyle = window.getComputedStyle(document.body);
+        if (!rootText) textColor = bodyStyle.color || textColor;
+        if (!rootFont) fontFamily = bodyStyle.fontFamily || fontFamily;
+
+        const primaryBtn = document.querySelector('button, .btn-primary, [class*="primary"]');
+        if (primaryBtn) {
+            const btnColor = window.getComputedStyle(primaryBtn).backgroundColor;
+            if (btnColor && btnColor !== 'rgba(0, 0, 0, 0)') {
+                primaryColor = btnColor;
+            }
+        }
+
+        const mainContent = document.querySelector('main, .container, [class*="content"]');
+        if (mainContent) {
+            const bg = window.getComputedStyle(mainContent).backgroundColor;
+            if (bg && bg !== 'rgba(0, 0, 0, 0)') {
+                backgroundColor = bg;
+            }
+        }
+
+        const commonElement = document.querySelector('input, textarea, select, [class*="border"]');
+        if (commonElement) {
+            const border = window.getComputedStyle(commonElement).borderColor;
+            if (border && border !== 'rgba(0, 0, 0, 0)') {
+                borderColor = border;
+            }
+        }
+    } catch (e) {
+        console.log('Could not extract all styles, using defaults');
+    }
+
+    return {
+        primaryColor,
+        textColor,
+        fontFamily,
+        backgroundColor,
+        borderColor
+    };
+}
+
 function showReviewModal() {
     // Remove existing modal if present
     const existingModal = document.getElementById('review-modal-overlay');
     if (existingModal) {
         existingModal.remove();
     }
+
+    // Extract website styles
+    const websiteStyles = extractWebsiteStyles();
 
     // Create modal overlay
     const modalOverlay = document.createElement('div');
@@ -96,127 +156,152 @@ function showReviewModal() {
     // Add styles
     const style = document.createElement('style');
     style.textContent = `
+        :root {
+            --primary-color: ${websiteStyles.primaryColor};
+            --text-color: ${websiteStyles.textColor};
+            --font-family: ${websiteStyles.fontFamily};
+            --background-color: ${websiteStyles.backgroundColor};
+            --surface-color: #ffffff;
+            --border-color: ${websiteStyles.borderColor};
+            --muted-color: rgba(0, 0, 0, 0.6);
+            --overlay-color: rgba(0, 0, 0, 0.35);
+        }
+
         #review-modal-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
+            background-color: var(--overlay-color);
             z-index: 10000;
             display: flex;
             align-items: flex-start;
             justify-content: center;
-            padding-top: 80px; /* Adjust this value to position below header */
+            padding-top: 10.5rem;
         }
 
         #review-modal {
-            background: white;
-            border-radius: 8px;
-            width: 90%;
-            max-width: 500px;
-            max-height: 80vh;
+            background: var(--surface-color);
+            border-radius: 1rem;
+            width: min(92%, 560px);
+            max-height: calc(100vh - 12rem);
             overflow-y: auto;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-            font-family: Arial, sans-serif;
+            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.16);
+            font-family: var(--font-family);
+            color: var(--text-color);
+            border: 1px solid rgba(0, 0, 0, 0.05);
         }
 
         #review-modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 20px;
-            border-bottom: 1px solid #eee;
+            padding: 1.5rem 1.5rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+            background-color: #f8fafb;
+            border-top-left-radius: 1rem;
+            border-top-right-radius: 1rem;
         }
 
         #review-modal-header h2 {
             margin: 0;
-            color: #333;
+            font-size: 1.1rem;
+            letter-spacing: 0.01em;
+            color: var(--text-color);
+            font-weight: 500;
         }
 
         #review-modal-close {
             background: none;
             border: none;
-            font-size: 24px;
+            font-size: 1.9rem;
             cursor: pointer;
-            color: #666;
+            color: var(--text-color);
             padding: 0;
-            width: 30px;
-            height: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            line-height: 1;
+            width: 2rem;
+            height: 2rem;
+            display: grid;
+            place-items: center;
         }
 
         #review-modal-close:hover {
-            color: #333;
+            opacity: 0.75;
         }
 
         #review-modal-content {
-            padding: 20px;
+            padding: 1.5rem;
         }
 
         .stars {
-            font-size: 24px;
-            color: gold;
-            margin-bottom: 5px;
+            font-size: 1.4rem;
+            color: #d6b500;
+            margin-bottom: 0.35rem;
+            letter-spacing: 0.05em;
         }
 
         .review-count {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 20px;
+            font-size: 0.95rem;
+            color: var(--muted-color);
+            margin-bottom: 1.5rem;
         }
 
         .rating-bars {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 20px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
         }
 
         .rating-bar {
             display: flex;
             flex-direction: column;
+            gap: 0.4rem;
         }
 
         .bar-label {
-            font-size: 12px;
-            margin-bottom: 5px;
-            font-weight: bold;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-color);
         }
 
         .bar {
-            height: 8px;
-            background-color: #e0e0e0;
-            border-radius: 4px;
+            height: 0.55rem;
+            background-color: var(--border-color);
+            border-radius: 999px;
             overflow: hidden;
         }
 
         .bar-fill {
             height: 100%;
-            background-color: #4CAF50;
+            background-color: var(--primary-color);
             transition: width 0.3s ease;
         }
 
         .comments-section {
-            border-top: 1px solid #ccc;
-            padding-top: 15px;
+            border-top: 1px solid rgba(0, 0, 0, 0.08);
+            padding-top: 1.2rem;
         }
 
         .comments-title {
-            font-size: 16px;
-            margin-bottom: 10px;
-            font-weight: bold;
+            font-size: 1rem;
+            margin-bottom: 0.85rem;
+            font-weight: 700;
+            color: var(--text-color);
         }
 
         .comment {
-            font-size: 14px;
-            margin-bottom: 10px;
-            padding: 8px;
-            background-color: #f9f9f9;
-            border-radius: 4px;
-            border-left: 3px solid #4CAF50;
+            font-size: 0.95rem;
+            margin-bottom: 0.85rem;
+            padding: 1rem;
+            background-color: #f7f9fb;
+            border-radius: 0.85rem;
+            border-left: 4px solid var(--primary-color);
+            color: var(--text-color);
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
         }
     `;
 
