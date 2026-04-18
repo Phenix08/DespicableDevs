@@ -105,7 +105,7 @@ function injectRatingsTable() {
 
             const stars =
                 "★★★★★".slice(0, saved.overall)
-
+                + "☆☆☆☆☆".slice(saved.overall);    
             btn.innerText = stars;
 
             btn.onclick = () => {
@@ -116,6 +116,7 @@ function injectRatingsTable() {
 
                     btn.innerText =
                         "★★★★★".slice(0, data.overall)
+                        + "☆☆☆☆☆".slice(data.overall);
                 });
             };
 
@@ -129,6 +130,74 @@ function injectRatingsTable() {
 
 injectRatingsTable();
 setInterval(injectRatingsTable, 2000);
+
+function injectPrijaveReviewButtons() {
+
+    if (!window.location.href.includes("/studenti/moje-prijave-na-dela")) {
+        return;
+    }
+
+    console.log("BANANA (prijave review)");
+
+    const rows = document.querySelectorAll(".row.border-bottom");
+
+    rows.forEach(row => {
+
+        // 👉 NEW TARGET: ODPRI button container
+        const openBtnContainer = row.querySelector(".col-12.text-md-right.d-none.d-md-flex");
+        if (!openBtnContainer) return;
+
+        if (row.querySelector(".my-prijave-review-btn")) return;
+
+        const title = row.querySelector(".h3, .h5");
+        if (!title) return;
+
+        const company = title.innerText.trim();
+        const key = "review_" + company;
+
+        const savedRaw = localStorage.getItem(key);
+        const saved = savedRaw ? JSON.parse(savedRaw) : null;
+
+        const btn = document.createElement("button");
+        btn.className = "btn btn-sm btn-action my-prijave-review-btn";
+        btn.type = "button";
+
+        btn.innerText = saved
+            ? "★★★★★".slice(0, saved.overall) + "☆☆☆☆☆".slice(saved.overall)
+            : "Review";
+
+        btn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            showAddReviewModal(company, (data) => {
+                localStorage.setItem(key, JSON.stringify(data));
+
+                btn.innerText =
+                    "★★★★★".slice(0, data.overall) +
+                    "☆☆☆☆☆".slice(data.overall);
+            });
+        };
+
+        // 🔥 wrapper (forces new line under ODPRI)
+        const wrapper = document.createElement("div");
+        wrapper.className = "my-review-wrapper";
+
+        // IMPORTANT: force full width so it drops below
+        wrapper.style.width = "100%";
+        wrapper.style.display = "flex";
+        wrapper.style.justifyContent = "flex-end";
+        wrapper.style.marginTop = "6px";
+
+        wrapper.appendChild(btn);
+
+        // insert AFTER ODPRI button (not inside same flex row behavior)
+        openBtnContainer.insertAdjacentElement("afterend", wrapper);
+    });
+}
+
+injectPrijaveReviewButtons();
+setInterval(injectPrijaveReviewButtons, 2000);
 
 function showAddReviewModal(company, onSave) {
 
