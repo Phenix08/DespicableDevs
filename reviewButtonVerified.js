@@ -201,103 +201,144 @@ setInterval(injectPrijaveReviewButtons, 2000);
 
 function showAddReviewModal(company, onSave) {
 
-    const existing = document.getElementById("review-modal-overlay");
-    if (existing) existing.remove();
+    // Remove existing modal if present
+    const existingModal = document.getElementById('review-modal-overlay');
+    if (existingModal) existingModal.remove();
 
-    const overlay = document.createElement("div");
-    overlay.id = "review-modal-overlay";
+    const websiteStyles = extractWebsiteStyles();
 
-    overlay.innerHTML = `
-        <div id="review-modal">
-            <div id="review-modal-header">
-                <h2>Add Review (${company})</h2>
-                <button id="close-review">&times;</button>
-            </div>
+    const modalOverlay = document.createElement('div');
+    modalOverlay.id = 'review-modal-overlay';
+    document.body.appendChild(modalOverlay);
 
-            <div id="review-modal-content">
-
-                <label>Overall Rating</label>
-                <select id="overall-rating">
-                    <option value="1">1 ⭐</option>
-                    <option value="2">2 ⭐⭐</option>
-                    <option value="3">3 ⭐⭐⭐</option>
-                    <option value="4">4 ⭐⭐⭐⭐</option>
-                    <option value="5" selected>5 ⭐⭐⭐⭐⭐</option>
-                </select>
-
-                <label>Work Environment</label>
-                <select id="sub1">
-                    <option value="1">1</option><option value="2">2</option>
-                    <option value="3">3</option><option value="4">4</option>
-                    <option value="5" selected>5</option>
-                </select>
-
-                <label>Flexibility</label>
-                <select id="sub2">
-                    <option value="1">1</option><option value="2">2</option>
-                    <option value="3">3</option><option value="4">4</option>
-                    <option value="5" selected>5</option>
-                </select>
-
-                <label>Team</label>
-                <select id="sub3">
-                    <option value="1">1</option><option value="2">2</option>
-                    <option value="3">3</option><option value="4">4</option>
-                    <option value="5" selected>5</option>
-                </select>
-
-                <button id="save-review" class="btn btn-primary mt-3">Save Review</button>
-            </div>
-        </div>
-    `;
-
-    const style = document.createElement("style");
-    style.textContent = `
-        #review-modal-overlay {
-            position: fixed;
-            top:0; left:0;
-            width:100%; height:100%;
-            background: rgba(0,0,0,0.5);
-            display:flex;
-            justify-content:center;
-            align-items:center;
-            z-index:10000;
-        }
-        #review-modal {
-            background:white;
-            padding:20px;
-            border-radius:8px;
-            width:300px;
-        }
-        #review-modal-content {
-            display:flex;
-            flex-direction:column;
-            gap:10px;
-        }
-        select {
-            padding:5px;
+    const styleVars = document.createElement('style');
+    styleVars.id = 'review-popup-css-vars';
+    styleVars.textContent = `
+        :root {
+            --primary-color: ${websiteStyles.primaryColor};
+            --text-color: ${websiteStyles.textColor};
+            --font-family: ${websiteStyles.fontFamily};
+            --background-color: ${websiteStyles.backgroundColor};
+            --surface-color: #ffffff;
+            --border-color: ${websiteStyles.borderColor};
+            --muted-color: rgba(0, 0, 0, 0.6);
+            --overlay-color: rgba(0, 0, 0, 0.35);
         }
     `;
+    document.head.appendChild(styleVars);
 
-    document.head.appendChild(style);
-    document.body.appendChild(overlay);
+    let stylesheet = document.getElementById('review-popup-stylesheet');
+    if (!stylesheet) {
+        stylesheet = document.createElement('link');
+        stylesheet.id = 'review-popup-stylesheet';
+        stylesheet.rel = 'stylesheet';
+        stylesheet.href = chrome.runtime.getURL('popUpStyle.css');
+        document.head.appendChild(stylesheet);
+    }
 
-    document.getElementById("close-review").onclick = () => {
-        overlay.remove();
-        style.remove();
-    };
+    getPopupTemplate('addReviewPopup.html').then(template => {
 
-    document.getElementById("save-review").onclick = () => {
-        const data = {
-            overall: document.getElementById("overall-rating").value,
-            sub1: document.getElementById("sub1").value,
-            sub2: document.getElementById("sub2").value,
-            sub3: document.getElementById("sub3").value
+        modalOverlay.innerHTML = template;
+
+        // -----------------------------
+        // ⭐ STAR LOGIC (FIXED)
+        // -----------------------------
+        function setupStars(selector) {
+            const container = modalOverlay.querySelector(selector);
+            if (!container) return () => 5;
+
+            const stars = container.querySelectorAll("span");
+            let selected = 5;
+
+            const update = () => {
+                stars.forEach(s => {
+                    const val = parseInt(s.dataset.value);
+                    s.classList.toggle("active", val <= selected);
+                });
+            };
+
+            stars.forEach(s => {
+                s.addEventListener("click", () => {
+                    selected = parseInt(s.dataset.value);
+                    update();
+                });
+            });
+
+            update();
+            return () => selected;
+        }
+
+        const getOverall = setupStars('[data-target="overall"]');
+        const getSub1 = setupStars('[data-target="sub1"]');
+        const getSub2 = setupStars('[data-target="sub2"]');
+        const getSub3 = setupStars('[data-target="sub3"]');
+        const getSub4 = setupStars('[data-target="sub4"]');
+
+        // -----------------------------
+        // ❌ CLOSE BUTTON (FIXED)
+        // -----------------------------
+        const closeBtn = modalOverlay.querySelector('#review-modal-close');
+        if (closeBtn) {
+            closeBtn.onclick = () => {
+                modalOverlay.remove();
+                styleVars.remove();
+            };
+        }
+
+        // click outside closes
+        modalOverlay.onclick = (e) => {
+            if (e.target === modalOverlay) {
+                modalOverlay.remove();
+                styleVars.remove();
+            }
         };
 
-        onSave(data);
+        // ESC closes
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                modalOverlay.remove();
+                styleVars.remove();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
 
-        overlay.remove();
-        style.remove();
-    };
+        // -----------------------------
+        // 💾 SAVE BUTTON (FIXED)
+        // -----------------------------
+        const saveBtn = modalOverlay.querySelector('#save-review');
+
+        if (saveBtn) {
+            saveBtn.onclick = () => {
+
+                const data = {
+                    company: modalOverlay.querySelector('#company-input')?.value || company,
+                    jobTitle: modalOverlay.querySelector('#job-title-input')?.value || "",
+                    location: modalOverlay.querySelector('#location-input')?.value || "",
+
+                    overall: getOverall(),
+                    sub1: getSub1(),
+                    sub2: getSub2(),
+                    sub3: getSub3(),
+                    sub4: getSub4(),
+
+                    comment: modalOverlay.querySelector('#review-comment')?.value || ""
+                };
+
+                // REQUIRED FIELDS CHECK
+                if (!data.company || !data.jobTitle || !data.location) {
+                    alert("Fill in Job Title, Company and Location");
+                    return;
+                }
+
+                onSave(data);
+
+                modalOverlay.remove();
+                styleVars.remove();
+            };
+        }
+
+    }).catch(error => {
+        console.error('Could not load review template', error);
+    });
 }
