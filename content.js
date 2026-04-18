@@ -1,14 +1,48 @@
+function extractJobData(jobContainer) {
+    console.log("Extracting job data from container:", jobContainer);
+    const jobData = {
+        title: '',
+        company: '',
+        location: ''
+    };
+
+    // Extract job title from h5
+    const titleElement = jobContainer.querySelector('h5');
+    if (titleElement) {
+        jobData.title = titleElement.textContent.trim();
+    }
+
+    // Extract company and location from p elements
+    const paragraphs = jobContainer.querySelectorAll('p');
+    paragraphs.forEach((p, index) => {
+        const text = p.textContent.trim();
+        // First p usually contains company info
+        if (index === 0 && text) {
+            jobData.company = text;
+        }
+        // Second p usually contains location
+        else if (index === 1 && text) {
+            jobData.location = text;
+        }
+    });
+
+    return jobData;
+}
+
 function injectButton() {
     console.log("BANANA");
 
     const dodajButtons = document.querySelectorAll('button[sifra-data]');
 
     dodajButtons.forEach(dodajBtn => {
-        const container = dodajBtn.closest(".d-block");
-        if (!container) return;
+        const dBlockContainer = dodajBtn.closest(".d-block");
+        if (!dBlockContainer) return;
 
         // Prevent duplicates
-        if (container.querySelector(".my-stars-div")) return;
+        if (dBlockContainer.querySelector(".my-stars-div")) return;
+
+        // Find the parent container with job info (col-12 col-md-8 px-0 pr-md-2)
+        const jobInfoContainer = dBlockContainer.closest("article.job-item")?.querySelector(".col-12.col-md-8") || dBlockContainer.closest("[class*='col-12'][class*='col-md-8']");
 
         const wrapper = document.createElement("div");
         wrapper.className = "job-actions col-12 mb-1 ml-auto px-0 my-stars-div";
@@ -21,17 +55,18 @@ function injectButton() {
         btn.onclick = (event) => {
             event.preventDefault();
             event.stopPropagation();
-            showReviewModal();
+            const jobData = extractJobData(jobInfoContainer || dBlockContainer);
+            showReviewModal(jobData);
         };
 
         wrapper.appendChild(btn);
 
-        const allJobsDiv = container.querySelector("a[href*='vsadelapodj']")?.closest(".job-actions");
+        const allJobsDiv = dBlockContainer.querySelector("a[href*='vsadelapodj']")?.closest(".job-actions");
 
         if (allJobsDiv) {
             allJobsDiv.insertAdjacentElement("afterend", wrapper);
         } else {
-            container.appendChild(wrapper);
+            dBlockContainer.appendChild(wrapper);
         }
     });
 }
@@ -116,7 +151,7 @@ function extractWebsiteStyles() {
     };
 }
 
-function showReviewModal() {
+function showReviewModal(jobData = {}) {
     // Remove existing modal if present
     const existingModal = document.getElementById('review-modal-overlay');
     if (existingModal) {
@@ -162,6 +197,12 @@ function showReviewModal() {
 
     getPopupTemplate('reviewPopup.html').then(template => {
         modalOverlay.innerHTML = template;
+
+        // Update header with job data
+        const headerTitle = modalOverlay.querySelector('#review-modal-header h2');
+        if (headerTitle && jobData.title) {
+            headerTitle.innerHTML = `${jobData.title}<br><span style="font-size: 0.8rem; font-weight: 400; color: var(--muted-color);">${jobData.company}${jobData.location ? ' • ' + jobData.location : ''}</span>`;
+        }
 
         // Add thumbs up functionality
         const thumbsUpButtons = modalOverlay.querySelectorAll('.thumbs-up-btn');
