@@ -1,0 +1,90 @@
+<div id="review-modal">
+    <div id="review-modal-header">
+        <h2 id="review-title">Add Review</h2>
+        <button id="review-modal-close">&times;</button>
+    </div>
+
+    <div id="review-modal-content">
+
+        <!-- 🔍 SEARCH INPUTS -->
+        <div class="input-group">
+            <label>Job Title</label>
+            <input id="job-title-input" type="text" placeholder="Search job title..." />
+        </div>
+
+        <div class="input-group">
+            <label>Company</label>
+            <input id="company-input" type="text" placeholder="Search company..." />
+        </div>
+
+        <div class="input-group">
+            <label>Location</label>
+            <input id="location-input" type="text" placeholder="Search location..." />
+        </div>
+
+        <!-- ⭐ OVERALL RATING -->
+        <div class="section-title">Overall Rating</div>
+        <div class="stars-row" data-target="overall">
+            <span data-value="1">★</span>
+            <span data-value="2">★</span>
+            <span data-value="3">★</span>
+            <span data-value="4">★</span>
+            <span data-value="5">★</span>
+        </div>
+
+        <!-- 📊 SUB RATINGS -->
+        <div class="section-title">Detailed Ratings</div>
+
+        <div class="sub-ratings-grid">
+
+            <div class="rating-box">
+                <label>Work Environment</label>
+                <div class="stars-row" data-target="sub1">
+                    <span data-value="1">★</span><span data-value="2">★</span>
+                    <span data-value="3">★</span><span data-value="4">★</span>
+                    <span data-value="5">★</span>
+                </div>
+            </div>
+
+            <div class="rating-box">
+                <label>Flexibility</label>
+                <div class="stars-row" data-target="sub2">
+                    <span data-value="1">★</span><span data-value="2">★</span>
+                    <span data-value="3">★</span><span data-value="4">★</span>
+                    <span data-value="5">★</span>
+                </div>
+            </div>
+
+            <div class="rating-box">
+                <label>Team</label>
+                <div class="stars-row" data-target="sub3">
+                    <span data-value="1">★</span><span data-value="2">★</span>
+                    <span data-value="3">★</span><span data-value="4">★</span>
+                    <span data-value="5">★</span>
+                </div>
+            </div>
+
+            <div class="rating-box">
+                <label>Workload</label>
+                <div class="stars-row" data-target="sub4">
+                    <span data-value="1">★</span><span data-value="2">★</span>
+                    <span data-value="3">★</span><span data-value="4">★</span>
+                    <span data-value="5">★</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 💬 COMMENT -->
+        <div class="section-title">Comment</div>
+        <textarea id="review-comment" placeholder="Write your experience..."></textarea>
+
+        <!-- 🚀 BUTTON -->
+        <div class="actions">
+            <button id="save-review" class="btn-primary">
+                ADD REVIEW
+            </button>
+        </div>
+
+    </div>
+</div>
