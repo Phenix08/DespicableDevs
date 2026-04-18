@@ -6,20 +6,47 @@
 
     <div id="review-modal-content">
 
-        <!-- 🔍 SEARCH INPUTS -->
-        <div class="input-group">
-            <label>Job Title</label>
-            <input id="job-title-input" type="text" placeholder="Search job title..." />
+        <!-- 🔍 SEARCH INPUTS - AUTOCOMPLETE -->
+        <div class="form-group mb-md-0">
+            <label for="job-title-input">Job Title</label>
+            <div class="autocomplete-wrapper">
+                <input 
+                    type="text" 
+                    id="job-title-input" 
+                    class="autocomplete-input"
+                    placeholder="Search job title..."
+                    autocomplete="off"
+                />
+                <div id="job-title-dropdown" class="autocomplete-dropdown"></div>
+            </div>
         </div>
 
-        <div class="input-group">
-            <label>Company</label>
-            <input id="company-input" type="text" placeholder="Search company..." />
+        <div class="form-group mb-md-0">
+            <label for="company-input">Company</label>
+            <div class="autocomplete-wrapper">
+                <input 
+                    type="text" 
+                    id="company-input" 
+                    class="autocomplete-input"
+                    placeholder="Search company..."
+                    autocomplete="off"
+                />
+                <div id="company-dropdown" class="autocomplete-dropdown"></div>
+            </div>
         </div>
 
-        <div class="input-group">
-            <label>Location</label>
-            <input id="location-input" type="text" placeholder="Search location..." />
+        <div class="form-group mb-md-0">
+            <label for="location-input">Location</label>
+            <div class="autocomplete-wrapper">
+                <input 
+                    type="text" 
+                    id="location-input" 
+                    class="autocomplete-input"
+                    placeholder="Search location..."
+                    autocomplete="off"
+                />
+                <div id="location-dropdown" class="autocomplete-dropdown"></div>
+            </div>
         </div>
 
         <!-- ⭐ OVERALL RATING -->

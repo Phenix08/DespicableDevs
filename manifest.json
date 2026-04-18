@@ -14,7 +14,7 @@
 
   "web_accessible_resources": [
     {
-      "resources": ["reviewPopup.html", "popUpStyle.css", "addReviewPopup.html"],
+      "resources": ["reviewPopup.html", "popUpStyle.css", "addReviewPopup.html", "choices.min.css", "choices.min.js"],
       "matches": ["<all_urls>"]
     }
   ],
