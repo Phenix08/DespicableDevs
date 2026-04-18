@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Student Servis Button",
+  "version": "1.0",
+  "content_scripts": [
+    {
+      "matches": ["https://www.studentski-servis.com/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
