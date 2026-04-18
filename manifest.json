@@ -4,7 +4,7 @@
   "version": "1.0",
   "content_scripts": [
     {
-      "matches": ["https://www.studentski-servis.com/*"],
+      "matches": ["https://www.studentski-servis.com/*", "https://www.mjob.si/*"],
       "js": [
         "content.js",
         "reviewButtonVerified.js"
@@ -14,7 +14,7 @@
 
   "web_accessible_resources": [
     {
-      "resources": ["reviewPopup.html", "popUpStyle.css"],
+      "resources": ["reviewPopup.html", "popUpStyle.css", "popUpStyle-mjob.css"],
       "matches": ["<all_urls>"]
     }
   ],
