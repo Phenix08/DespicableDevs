@@ -366,3 +366,12 @@ document.body.addEventListener('click', () => {
         setTimeout(injectButton, 600);
     }
 });
+
+injectButton();
+setInterval(injectButton, 2000);
+observeMjobJobRows();
+document.body.addEventListener('click', () => {
+    if (isMjobSite()) {
+        setTimeout(injectButton, 600);
+    }
+});
