@@ -36,6 +36,29 @@ function injectButton() {
     });
 }
 
+let popupTemplates = {};
+
+function getPopupTemplate(templateName) {
+    if (popupTemplates[templateName]) {
+        return Promise.resolve(popupTemplates[templateName]);
+    }
+
+    const url = chrome.runtime.getURL(templateName);
+    console.log('Loading template from', url);
+
+    return fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to load ' + templateName + ': ' + response.status);
+            }
+            return response.text();
+        })
+        .then(template => {
+            popupTemplates[templateName] = template;
+            return template;
+        });
+}
+
 function extractWebsiteStyles() {
     // Extract styles from the website to match its aesthetic
     const rootStyle = window.getComputedStyle(document.documentElement);
@@ -106,56 +129,13 @@ function showReviewModal() {
     // Create modal overlay
     const modalOverlay = document.createElement('div');
     modalOverlay.id = 'review-modal-overlay';
-    modalOverlay.innerHTML = `
-        <div id="review-modal">
-            <div id="review-modal-header">
-                <h2>Job Review</h2>
-                <button id="review-modal-close">&times;</button>
-            </div>
-            <div id="review-modal-content">
-                <div class="stars">★★★★★</div>
-                <div class="review-count">Based on 42 reviews</div>
 
-                <div class="rating-bars">
-                    <div class="rating-bar">
-                        <div class="bar-label">Location</div>
-                        <div class="bar">
-                            <div class="bar-fill" style="width: 85%;"></div>
-                        </div>
-                    </div>
-                    <div class="rating-bar">
-                        <div class="bar-label">Application Process</div>
-                        <div class="bar">
-                            <div class="bar-fill" style="width: 70%;"></div>
-                        </div>
-                    </div>
-                    <div class="rating-bar">
-                        <div class="bar-label">Team</div>
-                        <div class="bar">
-                            <div class="bar-fill" style="width: 90%;"></div>
-                        </div>
-                    </div>
-                    <div class="rating-bar">
-                        <div class="bar-label">Flexibility in Work Hours</div>
-                        <div class="bar">
-                            <div class="bar-fill" style="width: 75%;"></div>
-                        </div>
-                    </div>
-                </div>
+    // Add overlay immediately so it exists before template insertion
+    document.body.appendChild(modalOverlay);
 
-                <div class="comments-section">
-                    <div class="comments-title">Comments</div>
-                    <div class="comment">Great location and flexible hours!</div>
-                    <div class="comment">The team is amazing and supportive.</div>
-                    <div class="comment">Application process was straightforward.</div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    // Add styles
-    const style = document.createElement('style');
-    style.textContent = `
+    const styleVars = document.createElement('style');
+    styleVars.id = 'review-popup-css-vars';
+    styleVars.textContent = `
         :root {
             --primary-color: ${websiteStyles.primaryColor};
             --text-color: ${websiteStyles.textColor};
@@ -166,169 +146,63 @@ function showReviewModal() {
             --muted-color: rgba(0, 0, 0, 0.6);
             --overlay-color: rgba(0, 0, 0, 0.35);
         }
-
-        #review-modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: var(--overlay-color);
-            z-index: 10000;
-            display: flex;
-            align-items: flex-start;
-            justify-content: center;
-            padding-top: 10.5rem;
-        }
-
-        #review-modal {
-            background: var(--surface-color);
-            border-radius: 1rem;
-            width: min(92%, 560px);
-            max-height: calc(100vh - 12rem);
-            overflow-y: auto;
-            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.16);
-            font-family: var(--font-family);
-            color: var(--text-color);
-            border: 1px solid rgba(0, 0, 0, 0.05);
-        }
-
-        #review-modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem 1.5rem 1rem;
-            border-bottom: 1px solid var(--border-color);
-            background-color: #f8fafb;
-            border-top-left-radius: 1rem;
-            border-top-right-radius: 1rem;
-        }
-
-        #review-modal-header h2 {
-            margin: 0;
-            font-size: 1.1rem;
-            letter-spacing: 0.01em;
-            color: var(--text-color);
-            font-weight: 500;
-        }
-
-        #review-modal-close {
-            background: none;
-            border: none;
-            font-size: 1.9rem;
-            cursor: pointer;
-            color: var(--text-color);
-            padding: 0;
-            line-height: 1;
-            width: 2rem;
-            height: 2rem;
-            display: grid;
-            place-items: center;
-        }
-
-        #review-modal-close:hover {
-            opacity: 0.75;
-        }
-
-        #review-modal-content {
-            padding: 1.5rem;
-        }
-
-        .stars {
-            font-size: 1.4rem;
-            color: #d6b500;
-            margin-bottom: 0.35rem;
-            letter-spacing: 0.05em;
-        }
-
-        .review-count {
-            font-size: 0.95rem;
-            color: var(--muted-color);
-            margin-bottom: 1.5rem;
-        }
-
-        .rating-bars {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .rating-bar {
-            display: flex;
-            flex-direction: column;
-            gap: 0.4rem;
-        }
-
-        .bar-label {
-            font-size: 0.78rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--text-color);
-        }
-
-        .bar {
-            height: 0.55rem;
-            background-color: var(--border-color);
-            border-radius: 999px;
-            overflow: hidden;
-        }
-
-        .bar-fill {
-            height: 100%;
-            background-color: var(--primary-color);
-            transition: width 0.3s ease;
-        }
-
-        .comments-section {
-            border-top: 1px solid rgba(0, 0, 0, 0.08);
-            padding-top: 1.2rem;
-        }
-
-        .comments-title {
-            font-size: 1rem;
-            margin-bottom: 0.85rem;
-            font-weight: 700;
-            color: var(--text-color);
-        }
-
-        .comment {
-            font-size: 0.95rem;
-            margin-bottom: 0.85rem;
-            padding: 1rem;
-            background-color: #f7f9fb;
-            border-radius: 0.85rem;
-            border-left: 4px solid var(--primary-color);
-            color: var(--text-color);
-            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
-        }
     `;
+    document.head.appendChild(styleVars);
 
-    document.head.appendChild(style);
+    let stylesheet = document.getElementById('review-popup-stylesheet');
+    if (!stylesheet) {
+        stylesheet = document.createElement('link');
+        stylesheet.id = 'review-popup-stylesheet';
+        stylesheet.rel = 'stylesheet';
+        stylesheet.href = chrome.runtime.getURL('popUpStyle.css');
+        document.head.appendChild(stylesheet);
+    }
+
     document.body.appendChild(modalOverlay);
 
-    // Add close functionality
-    document.getElementById('review-modal-close').onclick = () => {
-        modalOverlay.remove();
-        style.remove();
-    };
+    getPopupTemplate('reviewPopup.html').then(template => {
+        modalOverlay.innerHTML = template;
 
-    // Close on overlay click
-    modalOverlay.onclick = (e) => {
-        if (e.target === modalOverlay) {
-            modalOverlay.remove();
-            style.remove();
-        }
-    };
+        // Add thumbs up functionality
+        const thumbsUpButtons = modalOverlay.querySelectorAll('.thumbs-up-btn');
+        thumbsUpButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const isUpvoted = this.getAttribute('data-upvoted') === 'true';
+                const currentCount = parseInt(this.textContent.split(' ')[1]);
 
-    // Close on Escape key
-    document.addEventListener('keydown', function closeOnEscape(e) {
-        if (e.key === 'Escape') {
+                if (isUpvoted) {
+                    // Remove upvote
+                    this.setAttribute('data-upvoted', 'false');
+                    this.textContent = `👍 ${currentCount - 1}`;
+                } else {
+                    // Add upvote
+                    this.setAttribute('data-upvoted', 'true');
+                    this.textContent = `👍 ${currentCount + 1}`;
+                }
+            });
+        });
+
+        document.getElementById('review-modal-close').onclick = () => {
             modalOverlay.remove();
-            style.remove();
-            document.removeEventListener('keydown', closeOnEscape);
-        }
+            styleVars.remove();
+        };
+
+        modalOverlay.onclick = (e) => {
+            if (e.target === modalOverlay) {
+                modalOverlay.remove();
+                styleVars.remove();
+            }
+        };
+
+        document.addEventListener('keydown', function closeOnEscape(e) {
+            if (e.key === 'Escape') {
+                modalOverlay.remove();
+                styleVars.remove();
+                document.removeEventListener('keydown', closeOnEscape);
+            }
+        });
+    }).catch(error => {
+        console.error('Could not load review template', error);
     });
 }
 

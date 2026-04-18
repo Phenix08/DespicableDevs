@@ -12,6 +12,13 @@
     }
   ],
 
+  "web_accessible_resources": [
+    {
+      "resources": ["reviewPopup.html", "popUpStyle.css"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+
   "action": {
     "default_popup": "popup.html"
   }
