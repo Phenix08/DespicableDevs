@@ -1,5 +1,66 @@
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'openPopup') {
-    chrome.browserAction.openPopup();
-  }
+const SCRAPER_ENDPOINTS = [
+    'http://localhost:5000/scraper',
+    'http://127.0.0.1:5000/scraper'
+];
+
+function fetchWithTimeout(url, options = {}, timeout = 6000) {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            reject(new Error('Fetch timed out after ' + timeout + 'ms'));
+        }, timeout);
+
+        fetch(url, options)
+            .then(response => {
+                clearTimeout(timer);
+                resolve(response);
+            })
+            .catch(error => {
+                clearTimeout(timer);
+                reject(error);
+            });
+    });
+}
+
+async function tryPostJobData(url, jobData) {
+    const response = await fetchWithTimeout(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(jobData)
+    }, 6000);
+    return response;
+}
+
+async function postJobData(jobData) {
+    for (const endpoint of SCRAPER_ENDPOINTS) {
+        try {
+            const response = await tryPostJobData(endpoint, jobData);
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.warn('Failed to post job data to', endpoint, response.status, errorText);
+                continue;
+            }
+            console.log('Successfully posted job data to', endpoint, jobData);
+            return { success: true };
+        } catch (error) {
+            console.warn('Job post failed for', endpoint, error);
+        }
+    }
+    return { success: false, error: 'All endpoints failed' };
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.type === 'postJobData') {
+        postJobData(message.jobData)
+            .then(result => sendResponse(result))
+            .catch(error => sendResponse({ success: false, error: error?.message || String(error) }));
+        return true;
+    }
+
+    if (message?.action === 'openPopup') {
+        if (chrome.action) {
+            chrome.action.openPopup();
+        }
+    }
 });

@@ -97,7 +97,11 @@ function observeMjobJobRows() {
             for (const node of mutation.addedNodes) {
                 if (!(node instanceof Element)) continue;
 
-                if (node.matches('div.flex.items-center.gap-4.text-[14px], a.job-card, .job-card') || node.querySelector('div.flex.items-center.gap-4.text-[14px]')) {
+                const isJobCardNode = node.matches('a.job-card, .job-card');
+                const isLocationRowNode = node.matches('div.flex.items-center.gap-4') && node.classList.contains('text-[14px]');
+                const hasLocationRowDescendant = Array.from(node.querySelectorAll('div.flex.items-center.gap-4')).some(el => el.classList.contains('text-[14px]'));
+
+                if (isJobCardNode || isLocationRowNode || hasLocationRowDescendant) {
                     injectButton();
                     return;
                 }
