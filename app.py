@@ -16,7 +16,7 @@ firebase_admin.initialize_app(cred)
 
 db = firestore.Client()
 
-@app.route("/scraper")
+@app.route("/scraper", methods=["POST"])
 def add_company_data():
 	data = request.get_json()
 
@@ -24,10 +24,10 @@ def add_company_data():
 	name = normalize(name)
 
 	position = data.get('title')
-	position = normalize(position)
+	position = position.upper()
 
 	location = data.get('location')
-	location = normalize(location)
+	location = location.upper()
 
 	companies_ref = db.collection('companies')
 	query = companies_ref.where('name', '==', name).limit(1).stream()

@@ -2,14 +2,22 @@
   "manifest_version": 3,
   "name": "Student Servis Button",
   "version": "1.0",
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": ["https://www.studentski-servis.com/*", "https://www.mjob.si/*"],
       "js": [
         "content.js",
-        "reviewButtonVerified.js"
+        "reviewButtonVerified.js",
+        "scraper.js"
       ]
     }
+  ],
+  "host_permissions": [
+    "http://localhost:5000/*",
+    "http://127.0.0.1:5000/*"
   ],
 
   "web_accessible_resources": [
