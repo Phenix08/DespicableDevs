@@ -4,6 +4,8 @@ from firebase_admin import credentials, firestore
 import os
 from dotenv import load_dotenv
 
+from backend.functions import normalize
+
 load_dotenv()
 
 app = Flask(__name__)
@@ -14,29 +16,48 @@ firebase_admin.initialize_app(cred)
 
 db = firestore.Client()
 
-@app.route("/")
-def basic_data_display():
-	company_ref = db.collection('copmanies').document('7xi72ulDWcUtCT3AttSj')
-	company_doc = company_ref.get()
+@app.route("/scraper")
+def add_company_data():
+	data = request.get_json()
 
-	if company_doc.exists:
-		company_data = company_doc.to_dict()
-		print(f"Company Details for {'7xi72ulDWcUtCT3AttSj'}: {company_data}")
-		
-		locations_ref = db.collection('copmanies').document('7xi72ulDWcUtCT3AttSj').collection('locations')
-		locations_docs = locations_ref.stream() # Use .stream() to get all documents in a collection
+	name = data.get('company')
+	name = normalize(name)
 
-		locations_list = []
-		for loc_doc in locations_docs:
-			location_data = loc_doc.to_dict()
-			location_data['id'] = loc_doc.id # Include the document ID if needed
-			locations_list.append(location_data)
+	position = data.get('title')
+	position = normalize(position)
 
-		print(f"Locations for {'7xi72ulDWcUtCT3AttSj'}: {locations_list}")
-		return company_data, locations_list
+	location = data.get('location')
+	location = normalize(location)
+
+	companies_ref = db.collection('companies')
+	query = companies_ref.where('name', '==', name).limit(1).stream()
+	existing_company_doc = next(query, None) # Get the first document if it exists
+
+	if existing_company_doc:
+		company_id = existing_company_doc.id
 	else:
-		print(f"Company with ID {'7xi72ulDWcUtCT3AttSj'} not found.")
-		return None
+		new_company_doc_ref = companies_ref.add({"name": name, "positions": []})
+		company_id = new_company_doc_ref[1].id # Access the DocumentReference object
+	
+	if company_id:
+		company_doc_ref = companies_ref.document(company_id)
+
+		company_doc_ref.update({
+			'positions': firestore.ArrayUnion([position])
+		})
+
+		locations_ref = company_doc_ref.collection('locations')
+		location_query = locations_ref.where('location', '==', location).limit(1).stream()
+		existing_location_doc = next(location_query, None)
+
+		if not existing_location_doc:
+			locations_ref.add({"location": location})
+	
+	else:
+		if not company_id:
+			return {"error": "Missing company_id"}, 400
+	
+	return {"status": "success"}
 
 if __name__ == '__main__':
 	app.run(debug=True)
