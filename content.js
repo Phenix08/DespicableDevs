@@ -266,6 +266,122 @@ function extractWebsiteStyles() {
     };
 }
 
+function initializeInlineAutocomplete(container, inputId, dropdownId, options) {
+    const input = container.querySelector('#' + inputId);
+    const dropdown = container.querySelector('#' + dropdownId);
+    if (!input || !dropdown) return;
+
+    function filterAndRender(searchTerm) {
+        const filtered = options.filter(opt => opt.toLowerCase().includes(searchTerm.toLowerCase()));
+        dropdown.innerHTML = '';
+
+        const listToShow = searchTerm === '' ? options : filtered;
+        if (listToShow.length === 0) {
+            dropdown.innerHTML = '<div style="padding: 0.6rem 0.75rem; color: #999;">No matches found</div>';
+            dropdown.classList.add('active');
+            return;
+        }
+
+        listToShow.forEach(opt => {
+            const optionNode = document.createElement('div');
+            optionNode.className = 'autocomplete-option';
+            optionNode.textContent = opt;
+            optionNode.onclick = (e) => {
+                e.stopPropagation();
+                input.value = opt;
+                dropdown.classList.remove('active');
+            };
+            dropdown.appendChild(optionNode);
+        });
+
+        dropdown.classList.add('active');
+    }
+
+    input.addEventListener('focus', () => filterAndRender(input.value.trim()));
+    input.addEventListener('input', () => filterAndRender(input.value.trim()));
+    document.addEventListener('click', (e) => {
+        if (!dropdown.contains(e.target) && e.target !== input) {
+            dropdown.classList.remove('active');
+        }
+    });
+}
+
+function setupInlineStars(modalOverlay, selector) {
+    const container = modalOverlay.querySelector(selector);
+    if (!container) return () => 0;
+
+    const stars = container.querySelectorAll('span');
+    let selected = 0;
+
+    const update = () => {
+        stars.forEach(star => {
+            const value = parseInt(star.dataset.value, 10);
+            star.classList.toggle('active', value <= selected);
+        });
+    };
+
+    stars.forEach(star => {
+        star.addEventListener('click', () => {
+            selected = parseInt(star.dataset.value, 10);
+            update();
+        });
+    });
+
+    update();
+    return () => selected;
+}
+
+function wireInlineAddReview(modalOverlay, jobData) {
+    const titleInput = modalOverlay.querySelector('#inline-job-title-input');
+    const companyInput = modalOverlay.querySelector('#inline-company-input');
+    const locationInput = modalOverlay.querySelector('#inline-location-input');
+    const commentInput = modalOverlay.querySelector('#inline-review-comment');
+
+    if (titleInput && jobData.title) titleInput.value = jobData.title;
+    if (companyInput && jobData.company) companyInput.value = jobData.company;
+    if (locationInput && jobData.location) locationInput.value = jobData.location;
+
+    if (titleInput) titleInput.readOnly = true;
+    if (companyInput) companyInput.readOnly = true;
+    if (locationInput) locationInput.readOnly = true;
+
+    const getOverall = setupInlineStars(modalOverlay, '[data-target="inline-overall"]');
+    const getSub1 = setupInlineStars(modalOverlay, '[data-target="inline-sub1"]');
+    const getSub2 = setupInlineStars(modalOverlay, '[data-target="inline-sub2"]');
+    const getSub3 = setupInlineStars(modalOverlay, '[data-target="inline-sub3"]');
+    const getSub4 = setupInlineStars(modalOverlay, '[data-target="inline-sub4"]');
+
+    const saveBtn = modalOverlay.querySelector('.inline-save-review-btn');
+    if (!saveBtn) return;
+
+    saveBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+
+        const reviewData = {
+            company: companyInput?.value.trim() || '',
+            jobTitle: titleInput?.value.trim() || '',
+            location: locationInput?.value.trim() || '',
+            overall: getOverall(),
+            sub1: getSub1(),
+            sub2: getSub2(),
+            sub3: getSub3(),
+            sub4: getSub4(),
+            comment: commentInput?.value.trim() || ''
+        };
+
+        if (!reviewData.company || !reviewData.jobTitle || !reviewData.location) {
+            alert('Fill in Job Title, Company and Location');
+            return;
+        }
+
+        const storageKey = 'inline_review_' + [reviewData.company, reviewData.jobTitle, reviewData.location].join('::');
+        localStorage.setItem(storageKey, JSON.stringify(reviewData));
+        console.log('Saved inline review:', reviewData);
+
+        alert('Review saved successfully!');
+    });
+}
+
 function showReviewModal(jobData = {}) {
     // Remove existing modal if present
     const existingModal = document.getElementById('review-modal-overlay');
@@ -337,6 +453,8 @@ function showReviewModal(jobData = {}) {
                 }
             });
         });
+
+        wireInlineAddReview(modalOverlay, jobData);
 
         document.getElementById('review-modal-close').onclick = () => {
             modalOverlay.remove();
