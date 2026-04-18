@@ -240,15 +240,60 @@ function showAddReviewModal(company, onSave) {
 
         modalOverlay.innerHTML = template;
 
+        // Autocomplete data
+        const autocompleteData = {
+            'job-title-input': [
+                'Software Developer',
+                'Frontend Engineer',
+                'Backend Engineer',
+                'Full Stack Developer',
+                'Data Analyst',
+                'Project Manager',
+                'Designer',
+                'QA Engineer',
+                'DevOps Engineer',
+                'System Administrator'
+            ],
+            'company-input': [
+                'Google',
+                'Microsoft',
+                'Apple',
+                'Amazon',
+                'Facebook',
+                'Tesla',
+                'Netflix',
+                'Uber',
+                'Airbnb',
+                'LinkedIn'
+            ],
+            'location-input': [
+                'Ljubljana',
+                'Maribor',
+                'Koper',
+                'Celje',
+                'Kranj',
+                'Remote',
+                'New York',
+                'San Francisco',
+                'London',
+                'Berlin'
+            ]
+        };
+
+        // Initialize autocomplete for each field
+        Object.keys(autocompleteData).forEach(fieldId => {
+            initializeAutocomplete(modalOverlay, fieldId, autocompleteData[fieldId]);
+        });
+
         // -----------------------------
         // ⭐ STAR LOGIC (FIXED)
         // -----------------------------
         function setupStars(selector) {
             const container = modalOverlay.querySelector(selector);
-            if (!container) return () => 5;
+            if (!container) return () => 0;
 
             const stars = container.querySelectorAll("span");
-            let selected = 5;
+            let selected = 0;
 
             const update = () => {
                 stars.forEach(s => {
@@ -303,6 +348,12 @@ function showAddReviewModal(company, onSave) {
         };
         document.addEventListener('keydown', escHandler);
 
+        // Helper function to get values from input fields
+        function getInputValue(elementId) {
+            const input = modalOverlay.querySelector('#' + elementId);
+            return input ? input.value.trim() : "";
+        }
+
         // -----------------------------
         // 💾 SAVE BUTTON (FIXED)
         // -----------------------------
@@ -312,9 +363,9 @@ function showAddReviewModal(company, onSave) {
             saveBtn.onclick = () => {
 
                 const data = {
-                    company: modalOverlay.querySelector('#company-input')?.value || company,
-                    jobTitle: modalOverlay.querySelector('#job-title-input')?.value || "",
-                    location: modalOverlay.querySelector('#location-input')?.value || "",
+                    company: getInputValue('company-input') || company,
+                    jobTitle: getInputValue('job-title-input') || "",
+                    location: getInputValue('location-input') || "",
 
                     overall: getOverall(),
                     sub1: getSub1(),
@@ -340,5 +391,78 @@ function showAddReviewModal(company, onSave) {
 
     }).catch(error => {
         console.error('Could not load review template', error);
+    });
+}
+
+// ============================================================
+// 🎯 INITIALIZE AUTOCOMPLETE
+// ============================================================
+function initializeAutocomplete(container, fieldId, options) {
+    const input = container.querySelector('#' + fieldId);
+    const dropdown = container.querySelector('#' + fieldId.replace('input', 'dropdown'));
+
+    if (!input || !dropdown) return;
+
+    // Filter and display options
+    function filterAndDisplay(searchTerm) {
+        const filtered = options.filter(opt => 
+            opt.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+
+        dropdown.innerHTML = '';
+        
+        if (searchTerm === '' || filtered.length === 0) {
+            // Show all options if input is empty, or no results message
+            const optionsToShow = searchTerm === '' ? options : [];
+            
+            if (optionsToShow.length === 0 && searchTerm !== '') {
+                dropdown.innerHTML = '<div style="padding: 0.6rem 0.75rem; color: #999;">No matches found</div>';
+            } else {
+                optionsToShow.forEach(opt => {
+                    const div = document.createElement('div');
+                    div.className = 'autocomplete-option';
+                    div.textContent = opt;
+                    div.onclick = (e) => {
+                        e.stopPropagation();
+                        input.value = opt;
+                        dropdown.classList.remove('active');
+                    };
+                    dropdown.appendChild(div);
+                });
+            }
+        } else {
+            filtered.forEach(opt => {
+                const div = document.createElement('div');
+                div.className = 'autocomplete-option';
+                div.textContent = opt;
+                div.onclick = (e) => {
+                    e.stopPropagation();
+                    input.value = opt;
+                    dropdown.classList.remove('active');
+                };
+                dropdown.appendChild(div);
+            });
+        }
+
+        if (dropdown.children.length > 0) {
+            dropdown.classList.add('active');
+        }
+    }
+
+    // Focus: show all options
+    input.addEventListener('focus', () => {
+        filterAndDisplay('');
+    });
+
+    // Input: filter options
+    input.addEventListener('input', (e) => {
+        filterAndDisplay(e.target.value);
+    });
+
+    // Click outside: hide dropdown
+    document.addEventListener('click', (e) => {
+        if (e.target !== input && !input.contains(e.target)) {
+            dropdown.classList.remove('active');
+        }
     });
 }

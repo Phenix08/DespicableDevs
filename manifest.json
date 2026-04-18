@@ -22,7 +22,7 @@
 
   "web_accessible_resources": [
     {
-      "resources": ["reviewPopup.html", "popUpStyle.css", "popUpStyle-mjob.css"],
+      "resources": ["reviewPopup.html", "addReviewPopup.html", "popUpStyle.css", "popUpStyle-mjob.css"],
       "matches": ["<all_urls>"]
     }
   ],
