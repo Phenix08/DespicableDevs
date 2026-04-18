@@ -1,39 +1,208 @@
+function extractJobData(jobContainer) {
+    console.log("Extracting job data from container:", jobContainer);
+    const jobData = {
+        title: '',
+        company: '',
+        location: ''
+    };
+
+    if (isMjobSite()) {
+        const card = jobContainer.closest('a.job-card') || jobContainer.closest('.job-card') || jobContainer;
+
+        const titleElement = Array.from(card.querySelectorAll('h5')).find(el => el.classList.contains('underline') && el.classList.contains('line-clamp-1')) || card.querySelector('h5');
+        if (titleElement) {
+            jobData.title = titleElement.textContent.trim();
+        }
+
+        const companyElement = Array.from(card.querySelectorAll('span')).find(el => el.classList.contains('text-body-4-extra-light') && el.classList.contains('uppercase'))
+            || Array.from(card.querySelectorAll('span')).find(el => el.classList.contains('uppercase'))
+            || card.querySelector('span');
+        if (companyElement) {
+            jobData.company = companyElement.textContent.trim();
+        }
+
+        const locationRow = Array.from(card.querySelectorAll('div')).find(el =>
+            el.classList.contains('flex') &&
+            el.classList.contains('items-center') &&
+            el.classList.contains('gap-4') &&
+            el.classList.contains('text-[14px]')
+        );
+        if (locationRow) {
+            const spans = Array.from(locationRow.querySelectorAll('span'))
+                .filter(span => !span.classList.contains('rounded-full'));
+            if (spans.length) {
+                const lastSpan = spans[spans.length - 1];
+                jobData.location = lastSpan.textContent.trim();
+            } else {
+                const text = locationRow.textContent.trim();
+                if (text) {
+                    jobData.location = text;
+                }
+            }
+        }
+
+        return jobData;
+    }
+
+    // Default extraction for studentski servis and others
+    const titleElement = jobContainer.querySelector('h5');
+    if (titleElement) {
+        jobData.title = titleElement.textContent.trim();
+    }
+
+    const paragraphs = jobContainer.querySelectorAll('p');
+    paragraphs.forEach((p, index) => {
+        const text = p.textContent.trim();
+        if (index === 0 && text) {
+            jobData.company = text;
+        } else if (index === 1 && text) {
+            jobData.location = text;
+        }
+    });
+
+    return jobData;
+}
+
+function isMjobSite() {
+    return window.location.host.includes('mjob');
+}
+
+function ensureMjobStarHoverStyles() {
+    if (!isMjobSite() || document.getElementById('despicable-devs-mjob-star-style')) return;
+
+    const style = document.createElement('style');
+    style.id = 'despicable-devs-mjob-star-style';
+    style.textContent = `
+        button.mjob-review-stars-btn {
+            border: 1px solid transparent;
+            border-radius: 0.65rem;
+            padding: 0.18rem 0.55rem;
+            margin-left: 0.4rem;
+            transition: border 0.18s ease, background-color 0.18s ease;
+        }
+        button.mjob-review-stars-btn:hover {
+            border-bottom: 2px solid black;
+            border-left: 2px solid black;
+            background-color: rgba(255, 255, 255, 0.95);
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function observeMjobJobRows() {
+    if (!isMjobSite() || !document.body) return;
+
+    const observer = new MutationObserver(mutations => {
+        for (const mutation of mutations) {
+            for (const node of mutation.addedNodes) {
+                if (!(node instanceof Element)) continue;
+
+                if (node.matches('div.flex.items-center.gap-4.text-[14px], a.job-card, .job-card') || node.querySelector('div.flex.items-center.gap-4.text-[14px]')) {
+                    injectButton();
+                    return;
+                }
+            }
+        }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+}
+
 function injectButton() {
     console.log("BANANA");
+
+    if (isMjobSite()) {
+        ensureMjobStarHoverStyles();
+        const targetRows = Array.from(document.querySelectorAll('div.flex.items-center.gap-4')).filter(el => el.classList.contains('text-[14px]'));
+
+        targetRows.forEach(row => {
+            if (row.querySelector('.my-stars-div')) return;
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'job-actions col-12 mb-1 ml-auto px-0 my-stars-div';
+            wrapper.style.display = 'flex';
+            wrapper.style.alignItems = 'center';
+            wrapper.style.marginLeft = 'auto';
+
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-action ml-auto mjob-review-stars-btn';
+            btn.innerHTML = '★★★★★';
+            btn.style.fontSize = '16px';
+
+            btn.onclick = (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const jobData = extractJobData(row.closest('article.job-item') || row);
+                showReviewModal(jobData);
+            };
+
+            wrapper.appendChild(btn);
+            row.appendChild(wrapper);
+        });
+
+        return;
+    }
 
     const dodajButtons = document.querySelectorAll('button[sifra-data]');
 
     dodajButtons.forEach(dodajBtn => {
-        const container = dodajBtn.closest(".d-block");
-        if (!container) return;
+        const dBlockContainer = dodajBtn.closest('.d-block');
+        if (!dBlockContainer) return;
 
         // Prevent duplicates
-        if (container.querySelector(".my-stars-div")) return;
+        if (dBlockContainer.querySelector('.my-stars-div')) return;
 
-        const wrapper = document.createElement("div");
-        wrapper.className = "job-actions col-12 mb-1 ml-auto px-0 my-stars-div";
+        // Find the parent container with job info (col-12 col-md-8 px-0 pr-md-2)
+        const jobInfoContainer = dBlockContainer.closest('article.job-item')?.querySelector('.col-12.col-md-8') || dBlockContainer.closest("[class*='col-12'][class*='col-md-8']");
 
-        const btn = document.createElement("button");
-        btn.className = "btn btn-action ml-auto";
-        btn.innerHTML = "★★★★★";
-        btn.style.fontSize = "16px";
+        const wrapper = document.createElement('div');
+        wrapper.className = 'job-actions col-12 mb-1 ml-auto px-0 my-stars-div';
+
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-action ml-auto';
+        btn.innerHTML = '★★★★★';
+        btn.style.fontSize = '16px';
 
         btn.onclick = (event) => {
             event.preventDefault();
             event.stopPropagation();
-            showReviewModal();
+            const jobData = extractJobData(jobInfoContainer || dBlockContainer);
+            showReviewModal(jobData);
         };
 
         wrapper.appendChild(btn);
 
-        const allJobsDiv = container.querySelector("a[href*='vsadelapodj']")?.closest(".job-actions");
+        const allJobsDiv = dBlockContainer.querySelector("a[href*='vsadelapodj']")?.closest('.job-actions');
 
         if (allJobsDiv) {
-            allJobsDiv.insertAdjacentElement("afterend", wrapper);
+            allJobsDiv.insertAdjacentElement('afterend', wrapper);
         } else {
-            container.appendChild(wrapper);
+            dBlockContainer.appendChild(wrapper);
         }
     });
+}
+
+let popupTemplates = {};
+
+function getPopupTemplate(templateName) {
+    if (popupTemplates[templateName]) {
+        return Promise.resolve(popupTemplates[templateName]);
+    }
+
+    const url = chrome.runtime.getURL(templateName);
+    console.log('Loading template from', url);
+
+    return fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to load ' + templateName + ': ' + response.status);
+            }
+            return response.text();
+        })
+        .then(template => {
+            popupTemplates[templateName] = template;
+            return template;
+        });
 }
 
 function extractWebsiteStyles() {
@@ -93,7 +262,7 @@ function extractWebsiteStyles() {
     };
 }
 
-function showReviewModal() {
+function showReviewModal(jobData = {}) {
     // Remove existing modal if present
     const existingModal = document.getElementById('review-modal-overlay');
     if (existingModal) {
@@ -106,56 +275,13 @@ function showReviewModal() {
     // Create modal overlay
     const modalOverlay = document.createElement('div');
     modalOverlay.id = 'review-modal-overlay';
-    modalOverlay.innerHTML = `
-        <div id="review-modal">
-            <div id="review-modal-header">
-                <h2>Job Review</h2>
-                <button id="review-modal-close">&times;</button>
-            </div>
-            <div id="review-modal-content">
-                <div class="stars">★★★★★</div>
-                <div class="review-count">Based on 42 reviews</div>
 
-                <div class="rating-bars">
-                    <div class="rating-bar">
-                        <div class="bar-label">Location</div>
-                        <div class="bar">
-                            <div class="bar-fill" style="width: 85%;"></div>
-                        </div>
-                    </div>
-                    <div class="rating-bar">
-                        <div class="bar-label">Application Process</div>
-                        <div class="bar">
-                            <div class="bar-fill" style="width: 70%;"></div>
-                        </div>
-                    </div>
-                    <div class="rating-bar">
-                        <div class="bar-label">Team</div>
-                        <div class="bar">
-                            <div class="bar-fill" style="width: 90%;"></div>
-                        </div>
-                    </div>
-                    <div class="rating-bar">
-                        <div class="bar-label">Flexibility in Work Hours</div>
-                        <div class="bar">
-                            <div class="bar-fill" style="width: 75%;"></div>
-                        </div>
-                    </div>
-                </div>
+    // Add overlay immediately so it exists before template insertion
+    document.body.appendChild(modalOverlay);
 
-                <div class="comments-section">
-                    <div class="comments-title">Comments</div>
-                    <div class="comment">Great location and flexible hours!</div>
-                    <div class="comment">The team is amazing and supportive.</div>
-                    <div class="comment">Application process was straightforward.</div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    // Add styles
-    const style = document.createElement('style');
-    style.textContent = `
+    const styleVars = document.createElement('style');
+    styleVars.id = 'review-popup-css-vars';
+    styleVars.textContent = `
         :root {
             --primary-color: ${websiteStyles.primaryColor};
             --text-color: ${websiteStyles.textColor};
@@ -166,171 +292,77 @@ function showReviewModal() {
             --muted-color: rgba(0, 0, 0, 0.6);
             --overlay-color: rgba(0, 0, 0, 0.35);
         }
-
-        #review-modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: var(--overlay-color);
-            z-index: 10000;
-            display: flex;
-            align-items: flex-start;
-            justify-content: center;
-            padding-top: 10.5rem;
-        }
-
-        #review-modal {
-            background: var(--surface-color);
-            border-radius: 1rem;
-            width: min(92%, 560px);
-            max-height: calc(100vh - 12rem);
-            overflow-y: auto;
-            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.16);
-            font-family: var(--font-family);
-            color: var(--text-color);
-            border: 1px solid rgba(0, 0, 0, 0.05);
-        }
-
-        #review-modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem 1.5rem 1rem;
-            border-bottom: 1px solid var(--border-color);
-            background-color: #f8fafb;
-            border-top-left-radius: 1rem;
-            border-top-right-radius: 1rem;
-        }
-
-        #review-modal-header h2 {
-            margin: 0;
-            font-size: 1.1rem;
-            letter-spacing: 0.01em;
-            color: var(--text-color);
-            font-weight: 500;
-        }
-
-        #review-modal-close {
-            background: none;
-            border: none;
-            font-size: 1.9rem;
-            cursor: pointer;
-            color: var(--text-color);
-            padding: 0;
-            line-height: 1;
-            width: 2rem;
-            height: 2rem;
-            display: grid;
-            place-items: center;
-        }
-
-        #review-modal-close:hover {
-            opacity: 0.75;
-        }
-
-        #review-modal-content {
-            padding: 1.5rem;
-        }
-
-        .stars {
-            font-size: 1.4rem;
-            color: #d6b500;
-            margin-bottom: 0.35rem;
-            letter-spacing: 0.05em;
-        }
-
-        .review-count {
-            font-size: 0.95rem;
-            color: var(--muted-color);
-            margin-bottom: 1.5rem;
-        }
-
-        .rating-bars {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .rating-bar {
-            display: flex;
-            flex-direction: column;
-            gap: 0.4rem;
-        }
-
-        .bar-label {
-            font-size: 0.78rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--text-color);
-        }
-
-        .bar {
-            height: 0.55rem;
-            background-color: var(--border-color);
-            border-radius: 999px;
-            overflow: hidden;
-        }
-
-        .bar-fill {
-            height: 100%;
-            background-color: var(--primary-color);
-            transition: width 0.3s ease;
-        }
-
-        .comments-section {
-            border-top: 1px solid rgba(0, 0, 0, 0.08);
-            padding-top: 1.2rem;
-        }
-
-        .comments-title {
-            font-size: 1rem;
-            margin-bottom: 0.85rem;
-            font-weight: 700;
-            color: var(--text-color);
-        }
-
-        .comment {
-            font-size: 0.95rem;
-            margin-bottom: 0.85rem;
-            padding: 1rem;
-            background-color: #f7f9fb;
-            border-radius: 0.85rem;
-            border-left: 4px solid var(--primary-color);
-            color: var(--text-color);
-            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
-        }
     `;
+    document.head.appendChild(styleVars);
 
-    document.head.appendChild(style);
+    let stylesheet = document.getElementById('review-popup-stylesheet');
+    if (!stylesheet) {
+        stylesheet = document.createElement('link');
+        stylesheet.id = 'review-popup-stylesheet';
+        stylesheet.rel = 'stylesheet';
+        stylesheet.href = chrome.runtime.getURL(isMjobSite() ? 'popUpStyle-mjob.css' : 'popUpStyle.css');
+        document.head.appendChild(stylesheet);
+    }
+
     document.body.appendChild(modalOverlay);
 
-    // Add close functionality
-    document.getElementById('review-modal-close').onclick = () => {
-        modalOverlay.remove();
-        style.remove();
-    };
+    getPopupTemplate('reviewPopup.html').then(template => {
+        modalOverlay.innerHTML = template;
 
-    // Close on overlay click
-    modalOverlay.onclick = (e) => {
-        if (e.target === modalOverlay) {
-            modalOverlay.remove();
-            style.remove();
+        // Update header with job data
+        const headerTitle = modalOverlay.querySelector('#review-modal-header h2');
+        if (headerTitle && jobData.title) {
+            headerTitle.innerHTML = `${jobData.title}<br><span style="font-size: 0.8rem; font-weight: 400; color: var(--muted-color);">${jobData.company}${jobData.location ? ' • ' + jobData.location : ''}</span>`;
         }
-    };
 
-    // Close on Escape key
-    document.addEventListener('keydown', function closeOnEscape(e) {
-        if (e.key === 'Escape') {
+        // Add thumbs up functionality
+        const thumbsUpButtons = modalOverlay.querySelectorAll('.thumbs-up-btn');
+        thumbsUpButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const isUpvoted = this.getAttribute('data-upvoted') === 'true';
+                const currentCount = parseInt(this.textContent.split(' ')[1]);
+
+                if (isUpvoted) {
+                    // Remove upvote
+                    this.setAttribute('data-upvoted', 'false');
+                    this.textContent = `👍 ${currentCount - 1}`;
+                } else {
+                    // Add upvote
+                    this.setAttribute('data-upvoted', 'true');
+                    this.textContent = `👍 ${currentCount + 1}`;
+                }
+            });
+        });
+
+        document.getElementById('review-modal-close').onclick = () => {
             modalOverlay.remove();
-            style.remove();
-            document.removeEventListener('keydown', closeOnEscape);
-        }
+            styleVars.remove();
+        };
+
+        modalOverlay.onclick = (e) => {
+            if (e.target === modalOverlay) {
+                modalOverlay.remove();
+                styleVars.remove();
+            }
+        };
+
+        document.addEventListener('keydown', function closeOnEscape(e) {
+            if (e.key === 'Escape') {
+                modalOverlay.remove();
+                styleVars.remove();
+                document.removeEventListener('keydown', closeOnEscape);
+            }
+        });
+    }).catch(error => {
+        console.error('Could not load review template', error);
     });
 }
 
 injectButton();
 setInterval(injectButton, 2000);
+observeMjobJobRows();
+document.body.addEventListener('click', () => {
+    if (isMjobSite()) {
+        setTimeout(injectButton, 600);
+    }
+});

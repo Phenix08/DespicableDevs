@@ -27,10 +27,11 @@ function injectVerifiedReviewButtons() {
         btn.className = "btn btn-action my-review-btn";
 
         const key = "review_" + text;
-        const saved = localStorage.getItem(key);
+        const savedRaw = localStorage.getItem(key);
+        const saved = savedRaw ? JSON.parse(savedRaw) : null;
 
         if (saved) {
-            btn.innerHTML = "★★★★★".slice(0, saved) + "☆☆☆☆☆".slice(saved);
+            btn.innerHTML = "★★★★★".slice(0, saved.overall) + "☆☆☆☆☆".slice(saved.overall);
         } else {
             btn.innerText = "Add review";
         }
@@ -43,12 +44,12 @@ function injectVerifiedReviewButtons() {
         btn.style.marginLeft = "auto";
 
         btn.onclick = () => {
-            if (localStorage.getItem(key)) {
-                localStorage.removeItem(key);
-            } else {
-                localStorage.setItem(key, 5);
-            }
-            btn.remove();
+            event.preventDefault();
+            event.stopPropagation();
+            showAddReviewModal(text, (data) => {
+                localStorage.setItem(key, JSON.stringify(data));
+                btn.innerHTML = "★★★★★".slice(0, data.overall) + "☆☆☆☆☆".slice(data.overall);
+            });
         };
 
         titleDiv.appendChild(textSpan);
@@ -92,21 +93,31 @@ function injectRatingsTable() {
 
         const company = companyCell.innerText.trim();
         const key = "review_" + company;
-        const saved = localStorage.getItem(key);
+        const savedRaw = localStorage.getItem(key);
+        const saved = savedRaw ? JSON.parse(savedRaw) : null;
 
         const td = document.createElement("td");
         td.className = "text-center my-ocena-cell";
 
         if (saved) {
-            td.innerHTML = "★★★★★".slice(0, saved) + "☆☆☆☆☆".slice(saved);
-        } else {
             const btn = document.createElement("button");
-            btn.className = "btn btn-action";
-            btn.innerText = "Add review";
+            btn.className = "btn btn-action my-ocena-btn";
+
+            const stars =
+                "★★★★★".slice(0, saved.overall)
+                + "☆☆☆☆☆".slice(saved.overall);    
+            btn.innerText = stars;
 
             btn.onclick = () => {
-                localStorage.setItem(key, 5);
-                td.innerHTML = "★★★★★";
+                event.preventDefault();
+                event.stopPropagation();
+                showAddReviewModal(company, (data) => {
+                    localStorage.setItem(key, JSON.stringify(data));
+
+                    btn.innerText =
+                        "★★★★★".slice(0, data.overall)
+                        + "☆☆☆☆☆".slice(data.overall);
+                });
             };
 
             td.appendChild(btn);
@@ -119,3 +130,174 @@ function injectRatingsTable() {
 
 injectRatingsTable();
 setInterval(injectRatingsTable, 2000);
+
+function injectPrijaveReviewButtons() {
+
+    if (!window.location.href.includes("/studenti/moje-prijave-na-dela")) {
+        return;
+    }
+
+    console.log("BANANA (prijave review)");
+
+    const rows = document.querySelectorAll(".row.border-bottom");
+
+    rows.forEach(row => {
+
+        // 👉 NEW TARGET: ODPRI button container
+        const openBtnContainer = row.querySelector(".col-12.text-md-right.d-none.d-md-flex");
+        if (!openBtnContainer) return;
+
+        if (row.querySelector(".my-prijave-review-btn")) return;
+
+        const title = row.querySelector(".h3, .h5");
+        if (!title) return;
+
+        const company = title.innerText.trim();
+        const key = "review_" + company;
+
+        const savedRaw = localStorage.getItem(key);
+        const saved = savedRaw ? JSON.parse(savedRaw) : null;
+
+        const btn = document.createElement("button");
+        btn.className = "btn btn-sm btn-action my-prijave-review-btn";
+        btn.type = "button";
+
+        btn.innerText = saved
+            ? "★★★★★".slice(0, saved.overall) + "☆☆☆☆☆".slice(saved.overall)
+            : "Review";
+
+        btn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            showAddReviewModal(company, (data) => {
+                localStorage.setItem(key, JSON.stringify(data));
+
+                btn.innerText =
+                    "★★★★★".slice(0, data.overall) +
+                    "☆☆☆☆☆".slice(data.overall);
+            });
+        };
+
+        // 🔥 wrapper (forces new line under ODPRI)
+        const wrapper = document.createElement("div");
+        wrapper.className = "my-review-wrapper";
+
+        // IMPORTANT: force full width so it drops below
+        wrapper.style.width = "100%";
+        wrapper.style.display = "flex";
+        wrapper.style.justifyContent = "flex-end";
+        wrapper.style.marginTop = "6px";
+
+        wrapper.appendChild(btn);
+
+        // insert AFTER ODPRI button (not inside same flex row behavior)
+        openBtnContainer.insertAdjacentElement("afterend", wrapper);
+    });
+}
+
+injectPrijaveReviewButtons();
+setInterval(injectPrijaveReviewButtons, 2000);
+
+function showAddReviewModal(company, onSave) {
+
+    const existing = document.getElementById("review-modal-overlay");
+    if (existing) existing.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = "review-modal-overlay";
+
+    overlay.innerHTML = `
+        <div id="review-modal">
+            <div id="review-modal-header">
+                <h2>Add Review (${company})</h2>
+                <button id="close-review">&times;</button>
+            </div>
+
+            <div id="review-modal-content">
+
+                <label>Overall Rating</label>
+                <select id="overall-rating">
+                    <option value="1">1 ⭐</option>
+                    <option value="2">2 ⭐⭐</option>
+                    <option value="3">3 ⭐⭐⭐</option>
+                    <option value="4">4 ⭐⭐⭐⭐</option>
+                    <option value="5" selected>5 ⭐⭐⭐⭐⭐</option>
+                </select>
+
+                <label>Work Environment</label>
+                <select id="sub1">
+                    <option value="1">1</option><option value="2">2</option>
+                    <option value="3">3</option><option value="4">4</option>
+                    <option value="5" selected>5</option>
+                </select>
+
+                <label>Flexibility</label>
+                <select id="sub2">
+                    <option value="1">1</option><option value="2">2</option>
+                    <option value="3">3</option><option value="4">4</option>
+                    <option value="5" selected>5</option>
+                </select>
+
+                <label>Team</label>
+                <select id="sub3">
+                    <option value="1">1</option><option value="2">2</option>
+                    <option value="3">3</option><option value="4">4</option>
+                    <option value="5" selected>5</option>
+                </select>
+
+                <button id="save-review" class="btn btn-primary mt-3">Save Review</button>
+            </div>
+        </div>
+    `;
+
+    const style = document.createElement("style");
+    style.textContent = `
+        #review-modal-overlay {
+            position: fixed;
+            top:0; left:0;
+            width:100%; height:100%;
+            background: rgba(0,0,0,0.5);
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            z-index:10000;
+        }
+        #review-modal {
+            background:white;
+            padding:20px;
+            border-radius:8px;
+            width:300px;
+        }
+        #review-modal-content {
+            display:flex;
+            flex-direction:column;
+            gap:10px;
+        }
+        select {
+            padding:5px;
+        }
+    `;
+
+    document.head.appendChild(style);
+    document.body.appendChild(overlay);
+
+    document.getElementById("close-review").onclick = () => {
+        overlay.remove();
+        style.remove();
+    };
+
+    document.getElementById("save-review").onclick = () => {
+        const data = {
+            overall: document.getElementById("overall-rating").value,
+            sub1: document.getElementById("sub1").value,
+            sub2: document.getElementById("sub2").value,
+            sub3: document.getElementById("sub3").value
+        };
+
+        onSave(data);
+
+        overlay.remove();
+        style.remove();
+    };
+}
