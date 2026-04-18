@@ -382,6 +382,12 @@ function showAddReviewModal(company, onSave) {
                     return;
                 }
 
+                // REQUIRED RATINGS CHECK
+                if (!data.overall || !data.sub1 || !data.sub2 || !data.sub3 || !data.sub4) {
+                    alert("Please rate all categories (Overall and all detailed ratings)");
+                    return;
+                }
+
                 onSave(data);
 
                 modalOverlay.remove();
