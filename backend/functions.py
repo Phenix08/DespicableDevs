@@ -4,15 +4,11 @@ def normalize(name):
 	name = name.upper()
 
 	suffixes = [
-		r"\bD\.O\.O\.\b",
-		r"\bD\.O\.O\b",
-		r"\bD\.D\.\b",
-		r"\bD\.D\b",
-		r"\bS\.P\.\b",
-		r"\bS\.P\b",
-		r"\bD\.N\.O\.\b",
-		r"\bD\.N\.O\b"
-	]
+    r"\bD\s*\.?\s*O\s*\.?\s*O\s*\.?\b",
+    r"\bD\s*\.?\s*D\s*\.?\b",
+    r"\bS\s*\.?\s*P\s*\.?\b",
+    r"\bD\s*\.?\s*N\s*\.?\s*O\s*\.?\b"
+]
 
 	for suffix in suffixes:
 		name = re.sub(suffix, "", name)
