@@ -1,5 +1,4 @@
 function extractJobData(jobContainer) {
-    /*console.log("Extracting job data from container:", jobContainer);*/
     const jobData = {
         title: '',
         company: '',
@@ -284,8 +283,6 @@ async function fetchListingReviewSummary(jobData, { forceRefresh = false } = {})
                 return null;
             }
 
-            console.log('Reviews received for listing lookup:', params, result?.data?.reviews || []);
-
             const overall = Number(result?.data?.averages?.overall);
             const parsed = Number.isFinite(overall) ? overall : null;
             reviewSummaryCache.set(cacheKey, result.data || null);
@@ -530,139 +527,21 @@ function refreshStudentskiListingStars({ forceRefresh = false } = {}) {
 function ensureInjectedStarLogoStyles() {
     if (document.getElementById('despicable-devs-star-logo-style')) return;
 
-    const style = document.createElement('style');
-    style.id = 'despicable-devs-star-logo-style';
-    style.textContent = `
-        button.studentski-review-stars-btn {
-            color: #8a8a8a;
-            transition: color 0.18s ease;
-        }
-        button.studentski-review-stars-btn:hover {
-            color: #000000;
-        }
-        .extension-review-stars-badge {
-            display: inline-flex;
-            flex-direction: column;
-            align-items: flex-end;
-            line-height: 1;
-        }
-        .extension-review-stars-logo {
-            display: block;
-            width: 8.58em;
-            height: 1.65em;
-            margin-left: auto;
-            background-color: currentColor;
-            -webkit-mask-image: url("${chrome.runtime.getURL('Logos/LogoName.svg')}");
-            -webkit-mask-repeat: no-repeat;
-            -webkit-mask-size: contain;
-            -webkit-mask-position: right center;
-            mask-image: url("${chrome.runtime.getURL('Logos/LogoName.svg')}");
-            mask-repeat: no-repeat;
-            mask-size: contain;
-            mask-position: right center;
-            vertical-align: middle;
-        }
-        .extension-review-stars-text {
-            position: relative;
-            display: inline-block;
-            margin-top: 0.16em;
-            margin-right: 0.06em;
-            font-size: 1.05em;
-            letter-spacing: 0.09em;
-            font-weight: 700;
-            line-height: 1;
-            width: max-content;
-        }
-        .extension-review-stars-text .stars-base {
-            color: currentColor;
-            opacity: 0.28;
-        }
-        .extension-review-stars-text .stars-fill {
-            position: absolute;
-            left: 0;
-            top: 0;
-            color: currentColor;
-            overflow: hidden;
-            white-space: nowrap;
-            width: 100%;
-        }
-        .popup-overall-badge {
-            display: inline-flex;
-            flex-direction: column;
-            align-items: flex-start;
-            line-height: 1;
-        }
-        .popup-overall-logo {
-            display: block;
-            width: 8.9em;
-            height: 1.72em;
-            background-color: #000000;
-            -webkit-mask-image: url("${chrome.runtime.getURL('Logos/LogoName.svg')}");
-            -webkit-mask-repeat: no-repeat;
-            -webkit-mask-size: contain;
-            -webkit-mask-position: left center;
-            mask-image: url("${chrome.runtime.getURL('Logos/LogoName.svg')}");
-            mask-repeat: no-repeat;
-            mask-size: contain;
-            mask-position: left center;
-        }
-        .popup-overall-stars {
-            margin-top: 0.16em;
-            font-size: 1.16em;
-            color: var(--primary-color);
-        }
-        .comment-status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.28rem;
-            margin-left: 0.45rem;
-            font-style: italic;
-            font-size: 0.82em;
-        }
-        .comment-status-icon {
-            width: 0.95em;
-            height: 0.95em;
-            display: inline-block;
-            background-color: currentColor;
-            -webkit-mask-image: url("${chrome.runtime.getURL('Logos/Logo.svg')}");
-            -webkit-mask-repeat: no-repeat;
-            -webkit-mask-size: contain;
-            -webkit-mask-position: center;
-            mask-image: url("${chrome.runtime.getURL('Logos/Logo.svg')}");
-            mask-repeat: no-repeat;
-            mask-size: contain;
-            mask-position: center;
-        }
-        .comment-status-badge.applied {
-            color: #8a8a8a;
-        }
-        .comment-status-badge.worked {
-            color: #8BC832;
-        }
-    `;
-    document.head.appendChild(style);
+    const stylesheet = document.createElement('link');
+    stylesheet.id = 'despicable-devs-star-logo-style';
+    stylesheet.rel = 'stylesheet';
+    stylesheet.href = chrome.runtime.getURL('injectedStarLogoStyles.css');
+    document.head.appendChild(stylesheet);
 }
 
 function ensureMjobStarHoverStyles() {
     if (!isMjobSite() || document.getElementById('despicable-devs-mjob-star-style')) return;
 
-    const style = document.createElement('style');
-    style.id = 'despicable-devs-mjob-star-style';
-    style.textContent = `
-        button.mjob-review-stars-btn {
-            border: 1px solid transparent;
-            border-radius: 0.65rem;
-            padding: 0.18rem 0.55rem;
-            margin-left: 0.4rem;
-            transition: border 0.18s ease, background-color 0.18s ease;
-        }
-        button.mjob-review-stars-btn:hover {
-            border-bottom: 2px solid black;
-            border-left: 2px solid black;
-            background-color: rgba(255, 255, 255, 0.95);
-        }
-    `;
-    document.head.appendChild(style);
+    const stylesheet = document.createElement('link');
+    stylesheet.id = 'despicable-devs-mjob-star-style';
+    stylesheet.rel = 'stylesheet';
+    stylesheet.href = chrome.runtime.getURL('mjobStarHoverStyles.css');
+    document.head.appendChild(stylesheet);
 }
 
 function observeMjobJobRows() {
@@ -772,7 +651,6 @@ function getPopupTemplate(templateName) {
     }
 
     const url = chrome.runtime.getURL(templateName);
-    /*console.log('Loading template from', url);*/
 
     return fetch(url)
         .then(response => {
@@ -832,7 +710,6 @@ function extractWebsiteStyles() {
             }
         }
     } catch (e) {
-        /*console.log('Could not extract all styles, using defaults');*/
     }
 
     return {
@@ -842,46 +719,6 @@ function extractWebsiteStyles() {
         backgroundColor,
         borderColor
     };
-}
-
-function initializeInlineAutocomplete(container, inputId, dropdownId, options) {
-    const input = container.querySelector('#' + inputId);
-    const dropdown = container.querySelector('#' + dropdownId);
-    if (!input || !dropdown) return;
-
-    function filterAndRender(searchTerm) {
-        const filtered = options.filter(opt => opt.toLowerCase().includes(searchTerm.toLowerCase()));
-        dropdown.innerHTML = '';
-
-        const listToShow = searchTerm === '' ? options : filtered;
-        if (listToShow.length === 0) {
-            dropdown.innerHTML = '<div style="padding: 0.6rem 0.75rem; color: #999;">No matches found</div>';
-            dropdown.classList.add('active');
-            return;
-        }
-
-        listToShow.forEach(opt => {
-            const optionNode = document.createElement('div');
-            optionNode.className = 'autocomplete-option';
-            optionNode.textContent = opt;
-            optionNode.onclick = (e) => {
-                e.stopPropagation();
-                input.value = opt;
-                dropdown.classList.remove('active');
-            };
-            dropdown.appendChild(optionNode);
-        });
-
-        dropdown.classList.add('active');
-    }
-
-    input.addEventListener('focus', () => filterAndRender(input.value.trim()));
-    input.addEventListener('input', () => filterAndRender(input.value.trim()));
-    document.addEventListener('click', (e) => {
-        if (!dropdown.contains(e.target) && e.target !== input) {
-            dropdown.classList.remove('active');
-        }
-    });
 }
 
 function setupInlineStars(modalOverlay, selector) {
@@ -942,7 +779,6 @@ async function postInlineReviewFromForm(reviewData) {
     };
 
     return new Promise((resolve) => {
-        console.log('Sending review payload to backend (inline form):', payload);
         chrome.runtime.sendMessage({ type: 'postReviewData', reviewData: payload }, (response) => {
             if (chrome.runtime.lastError) {
                 resolve({ success: false, error: chrome.runtime.lastError.message });
@@ -1182,8 +1018,6 @@ function showReviewModal(jobData = {}) {
         stylesheet.href = chrome.runtime.getURL(isMjobSite() ? 'popUpStyle-mjob.css' : 'popUpStyle.css');
         document.head.appendChild(stylesheet);
     }
-
-    document.body.appendChild(modalOverlay);
 
     getPopupTemplate('reviewPopup.html').then(template => {
         modalOverlay.innerHTML = template;

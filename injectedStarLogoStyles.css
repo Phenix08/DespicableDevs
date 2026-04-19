@@ -1,0 +1,119 @@
+button.studentski-review-stars-btn {
+    color: #8a8a8a;
+    transition: color 0.18s ease;
+}
+
+button.studentski-review-stars-btn:hover {
+    color: #000000;
+}
+
+.extension-review-stars-badge {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1;
+}
+
+.extension-review-stars-logo {
+    display: block;
+    width: 8.58em;
+    height: 1.65em;
+    margin-left: auto;
+    background-color: currentColor;
+    -webkit-mask-image: url("Logos/LogoName.svg");
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+    -webkit-mask-position: right center;
+    mask-image: url("Logos/LogoName.svg");
+    mask-repeat: no-repeat;
+    mask-size: contain;
+    mask-position: right center;
+    vertical-align: middle;
+}
+
+.extension-review-stars-text {
+    position: relative;
+    display: inline-block;
+    margin-top: 0.16em;
+    margin-right: 0.06em;
+    font-size: 1.05em;
+    letter-spacing: 0.09em;
+    font-weight: 700;
+    line-height: 1;
+    width: max-content;
+}
+
+.extension-review-stars-text .stars-base {
+    color: black;
+    opacity: 0.28;
+}
+
+.extension-review-stars-text .stars-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    color: black;
+    overflow: hidden;
+    white-space: nowrap;
+    width: 100%;
+}
+
+.popup-overall-badge {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1;
+}
+
+.popup-overall-logo {
+    display: block;
+    width: 8.9em;
+    height: 1.72em;
+    background-color: #000000;
+    -webkit-mask-image: url("Logos/LogoName.svg");
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+    -webkit-mask-position: left center;
+    mask-image: url("Logos/LogoName.svg");
+    mask-repeat: no-repeat;
+    mask-size: contain;
+    mask-position: left center;
+}
+
+.popup-overall-stars {
+    margin-top: 0.16em;
+    font-size: 1.16em;
+    color: var(--primary-color);
+}
+
+.comment-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    margin-left: 0.45rem;
+    font-style: italic;
+    font-size: 0.82em;
+}
+
+.comment-status-icon {
+    width: 0.95em;
+    height: 0.95em;
+    display: inline-block;
+    background-color: currentColor;
+    -webkit-mask-image: url("Logos/Logo.svg");
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+    -webkit-mask-position: center;
+    mask-image: url("Logos/Logo.svg");
+    mask-repeat: no-repeat;
+    mask-size: contain;
+    mask-position: center;
+}
+
+.comment-status-badge.applied {
+    color: #8a8a8a;
+}
+
+.comment-status-badge.worked {
+    color: #8bc832;
+}

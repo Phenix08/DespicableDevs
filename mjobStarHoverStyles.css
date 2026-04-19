@@ -1,0 +1,13 @@
+button.mjob-review-stars-btn {
+    border: 1px solid transparent;
+    border-radius: 0.65rem;
+    padding: 0.18rem 0.55rem;
+    margin-left: 0.4rem;
+    transition: border 0.18s ease, background-color 0.18s ease;
+}
+
+button.mjob-review-stars-btn:hover {
+    border-bottom: 2px solid black;
+    border-left: 2px solid black;
+    background-color: rgba(255, 255, 255, 0.95);
+}
