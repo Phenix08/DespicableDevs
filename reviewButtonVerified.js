@@ -1,28 +1,31 @@
-function injectVerifiedReviewButtons() {
+function ensureInjectedStarLogoStyles() {
+    if (document.getElementById('despicable-devs-star-logo-style')) return;
 
-    let inlineLogoStyle = document.getElementById('despicable-devs-inline-logo-style');
-    if (!inlineLogoStyle) {
-        inlineLogoStyle = document.createElement('style');
-        inlineLogoStyle.id = 'despicable-devs-inline-logo-style';
-        inlineLogoStyle.textContent = `
-            .extension-review-inline-logo {
-                display: inline-block;
-                width: 1.43em;
-                height: 1.43em;
-                background-color: currentColor;
-                -webkit-mask-image: url("${chrome.runtime.getURL('Logos/Logo.svg')}");
-                -webkit-mask-repeat: no-repeat;
-                -webkit-mask-size: contain;
-                -webkit-mask-position: center;
-                mask-image: url("${chrome.runtime.getURL('Logos/Logo.svg')}");
-                mask-repeat: no-repeat;
-                mask-size: contain;
-                mask-position: center;
-                vertical-align: middle;
-            }
-        `;
-        document.head.appendChild(inlineLogoStyle);
-    }
+    const style = document.createElement('style');
+    style.id = 'despicable-devs-star-logo-style';
+    style.textContent = `
+        .extension-review-stars-logo {
+            display: block;
+            width: 8.58em;
+            height: 1.65em;
+            margin-left: auto;
+            background-color: currentColor;
+            -webkit-mask-image: url("${chrome.runtime.getURL('Logos/LogoName.svg')}");
+            -webkit-mask-repeat: no-repeat;
+            -webkit-mask-size: contain;
+            -webkit-mask-position: right center;
+            mask-image: url("${chrome.runtime.getURL('Logos/LogoName.svg')}");
+            mask-repeat: no-repeat;
+            mask-size: contain;
+            mask-position: right center;
+            vertical-align: middle;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function injectVerifiedReviewButtons() {
+    ensureInjectedStarLogoStyles();
 
     if (!window.location.href.includes("/studenti/moje-izkusnje/")) {
     return;
@@ -57,7 +60,7 @@ function injectVerifiedReviewButtons() {
         if (saved) {
             btn.innerHTML = '<span class="extension-review-stars-logo" aria-hidden="true"></span>';
         } else {
-            btn.innerHTML = '<span style="display:inline-flex;align-items:center;gap:0.35rem;font-size:1.5em;"><span class="extension-review-inline-logo" aria-hidden="true"></span><span>Add review</span></span>';
+            btn.innerText = "Add review";
         }
 
         // FLEX layout
@@ -72,7 +75,7 @@ function injectVerifiedReviewButtons() {
             event.stopPropagation();
             showAddReviewModal(text, (data) => {
                 localStorage.setItem(key, JSON.stringify(data));
-                btn.innerHTML = '<span class="extension-review-stars-logo" aria-hidden="true"></span>';
+                btn.innerHTML = "★★★★★".slice(0, data.overall) + "☆☆☆☆☆".slice(data.overall);
             });
         };
 
@@ -101,7 +104,8 @@ function injectRatingsTable() {
     // ✅ Insert header at correct position
     if (!theadRow.querySelector(".my-ocena-header")) {
         const th = document.createElement("th");
-        th.innerText = "Ocene";
+        ensureInjectedStarLogoStyles();
+        th.innerHTML = '<span class="extension-review-stars-logo" aria-hidden="true"></span>';
         th.className = "bg-white text-center my-ocena-header";
         th.style.fontSize = "12px";
 
@@ -314,10 +318,10 @@ function showAddReviewModal(company, onSave) {
         // -----------------------------
         function setupStars(selector) {
             const container = modalOverlay.querySelector(selector);
-            if (!container) return () => 0;
+            if (!container) return () => 5;
 
             const stars = container.querySelectorAll("span");
-            let selected = 0;
+            let selected = 5;
 
             const update = () => {
                 stars.forEach(s => {
@@ -397,19 +401,12 @@ function showAddReviewModal(company, onSave) {
                     sub3: getSub3(),
                     sub4: getSub4(),
 
-                    comment: modalOverlay.querySelector('#review-comment')?.value || "",
-                    anonymous: modalOverlay.querySelector('#anonymous-review')?.checked || false
+                    comment: modalOverlay.querySelector('#review-comment')?.value || ""
                 };
 
                 // REQUIRED FIELDS CHECK
                 if (!data.company || !data.jobTitle || !data.location) {
                     alert("Fill in Job Title, Company and Location");
-                    return;
-                }
-
-                // REQUIRED RATINGS CHECK
-                if (!data.overall || !data.sub1 || !data.sub2 || !data.sub3 || !data.sub4) {
-                    alert("Please rate all categories (Overall and all detailed ratings)");
                     return;
                 }
 
