@@ -24,6 +24,16 @@ function ensureInjectedStarLogoStyles() {
     document.head.appendChild(style);
 }
 
+    function updateFormTriggerButtonState(button, contentNode) {
+        if (!button || !contentNode) return;
+
+        const isAddReview = (contentNode.textContent || '').trim().toLowerCase() === 'add review';
+        button.disabled = !isAddReview;
+        button.style.pointerEvents = isAddReview ? 'auto' : 'none';
+        button.style.cursor = isAddReview ? 'pointer' : 'default';
+        button.style.opacity = isAddReview ? '1' : '0.7';
+    }
+
 
 function injectVerifiedReviewButtons() {
     ensureInjectedStarLogoStyles();
@@ -88,6 +98,8 @@ function injectVerifiedReviewButtons() {
             content.innerText = "Add review";
         }
 
+        updateFormTriggerButtonState(btn, content);
+
         btn.appendChild(logo);
         btn.appendChild(content);
 
@@ -117,6 +129,8 @@ setInterval(injectVerifiedReviewButtons, 2000);
 
 function injectRatingsTable() {
 
+
+                updateFormTriggerButtonState(btn, content);
     if (!window.location.href.includes("/studenti/izdane-napotnice/")) {
         return;
     }
@@ -128,6 +142,7 @@ function injectRatingsTable() {
     const theadRow = table.querySelector("thead tr");
     const tbodyRows = table.querySelectorAll("tbody tr");
 
+                        updateFormTriggerButtonState(btn, content);
     // ✅ Insert header at correct position
     if (!theadRow.querySelector(".my-ocena-header")) {
         const th = document.createElement("th");
@@ -249,6 +264,7 @@ function injectPrijaveReviewButtons() {
                 content.innerHTML = "★★★★★".slice(0, data.overall) + "☆☆☆☆☆".slice(data.overall);
                 content.style.fontSize = "1.8em";
                 content.style.lineHeight = "1";
+                updateFormTriggerButtonState(btn, content);
             }, { didApply: true });
         };
 
@@ -302,6 +318,31 @@ async function postVerifiedReviewFromForm(reviewData) {
             resolve(response || { success: false, error: 'No response from background' });
         });
     });
+}
+
+async function fetchVerifiedCompanyData(companyName) {
+    return new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: 'getCompanyData', params: { company: companyName } }, (response) => {
+            if (chrome.runtime.lastError) {
+                resolve({ success: false, error: chrome.runtime.lastError.message });
+                return;
+            }
+            resolve(response || { success: false, error: 'No response from background' });
+        });
+    });
+}
+
+function extractVerifiedCompanyLocations(companyData) {
+    const locationEntries = Array.isArray(companyData?.locations) ? companyData.locations : [];
+    const normalized = locationEntries
+        .map((entry) => {
+            if (typeof entry === 'string') return entry.trim();
+            if (entry && typeof entry.location === 'string') return entry.location.trim();
+            return '';
+        })
+        .filter(Boolean);
+
+    return Array.from(new Set(normalized));
 }
 
 function showAddReviewModal(jobData, onSave, context = {}) {
@@ -378,6 +419,21 @@ function showAddReviewModal(jobData, onSave, context = {}) {
         Object.keys(autocompleteData).forEach(fieldId => {
             initializeAutocomplete(modalOverlay, fieldId, autocompleteData[fieldId]);
         });
+
+        // Populate location dropdown options for the selected company using /getcompany.
+        fetchVerifiedCompanyData(jobData.company)
+            .then((result) => {
+                if (!result?.success) {
+                    console.warn('Failed to fetch company data for location options:', result?.error || 'Unknown error');
+                    return;
+                }
+
+                const locations = extractVerifiedCompanyLocations(result?.data);
+                autocompleteData['location-input'].splice(0, autocompleteData['location-input'].length, ...locations);
+            })
+            .catch((error) => {
+                console.warn('Unexpected error while loading company locations:', error);
+            });
 
         // -----------------------------
         // ⭐ STAR LOGIC (FIXED)

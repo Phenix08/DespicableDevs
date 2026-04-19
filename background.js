@@ -145,6 +145,13 @@ async function tryGetReviewData(url, params) {
     return response;
 }
 
+async function tryGetCompanyData(url, params) {
+    const query = new URLSearchParams(params).toString();
+    const targetUrl = `${url}?${query}`;
+    const response = await fetchWithTimeout(targetUrl, { method: 'GET' }, 6000);
+    return response;
+}
+
 async function getReviewData(params) {
     let lastError = null;
 
@@ -223,7 +230,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
 	if (message?.type === 'getCompanyData') {
-        getReviewData(message.params)
+        getCompanyData(message.params)
             .then(result => sendResponse(result))
             .catch(error => sendResponse({ success: false, error: error?.message || String(error) }));
         return true;

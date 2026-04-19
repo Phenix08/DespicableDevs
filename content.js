@@ -133,7 +133,7 @@ function extractMjobLocationFromMetadataRow(row) {
 const reviewAverageCache = new Map();
 const reviewSummaryCache = new Map();
 const reviewSummaryInFlight = new Map();
-const FALLBACK_CURRENT_USER_EMAIL = 'sara.strakl4@gmail.com';
+const FALLBACK_CURRENT_USER_EMAIL = 'timotejtbj@gmail.com';
 
 function toUpperTrim(value) {
     return (value || '').trim().toUpperCase();
@@ -1072,16 +1072,12 @@ function wireInlineAddReview(modalOverlay, jobData, existingReview = null) {
 
         invalidateListingReviewCache(reviewData);
         refreshStudentskiListingStars({ forceRefresh: true });
-        updateReviewDisclosureLabel(modalOverlay, true);
 
-        fetchListingReviewSummary({ ...jobData, forceRefresh: true }, { forceRefresh: true })
-            .then((summary) => {
-                renderPopupAverageData(modalOverlay, summary);
-                renderPopupComments(modalOverlay, summary);
-            })
-            .catch((error) => {
-                console.warn('Failed to refresh popup summary after submit', error);
-            });
+        modalOverlay.remove();
+        const styleVars = document.getElementById('review-popup-css-vars');
+        if (styleVars) {
+            styleVars.remove();
+        }
     });
 }
 
