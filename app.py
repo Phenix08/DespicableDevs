@@ -217,5 +217,38 @@ def get_review_data():
 		"reviews": reviews
 	})
 
+@app.route("/getcompany")
+def get_company_data():
+	company = request.args.get('company')
+
+	companies_ref = db.collection('companies')
+	query = companies_ref.where('name', '==', company).limit(1).stream()
+	existing_company_doc = next(query, None)
+	company_id = existing_company_doc.id
+	
+	company_details = existing_company_doc.to_dict()
+
+	# Initialize list for locations
+	locations_list = []
+
+	# --- Fetch Locations from Subcollection ---
+	locations_ref = companies_ref.document(company_id).collection('locations')
+	for loc_doc in locations_ref.stream():
+		location_data = loc_doc.to_dict()
+		location_data['id'] = loc_doc.id # Add subcollection document ID
+		locations_list.append(location_data)
+
+	# --- Extract Job Positions from Array within the Company Document ---
+	job_positions_list = company_details.get('job_positions', [])
+
+	if 'job_positions' in company_details:
+		del company_details['job_positions']
+
+	company_details['id'] = company_id
+	company_details['locations'] = locations_list
+	company_details['job_positions'] = job_positions_list
+
+	return jsonify(company_details)
+
 if __name__ == '__main__':
 	app.run(debug=True)
