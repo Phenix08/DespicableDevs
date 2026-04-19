@@ -1,17 +1,3 @@
-@font-face {
-    font-family: 'Montserrat';
-    src: url('Logos/Montserrat-SemiBold.woff2') format('woff2');
-    font-weight: normal;
-    font-style: normal;
-    font-display: swap;
-}
-@font-face {
-    font-family: 'Montserrat';
-    src: url('Logos/Montserrat-SemiBold.woff2') format('woff2');
-    font-weight: 600;
-    font-style: normal;
-    font-display: swap;
-}
 #review-modal-overlay {
     position: fixed;
     top: 0;
