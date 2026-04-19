@@ -42,15 +42,17 @@ function injectVerifiedReviewButtons() {
     return;
     }
 
-
-    const jobRows = document.querySelectorAll(".row.border-bottom");
+    const jobRows = [
+    ...document.querySelectorAll('.row.border-bottom'),
+    ...Array.from(document.querySelectorAll('.row.pb-4.mb-4')).slice(-1)
+    ];
 
     jobRows.forEach(row => {
         const companyDiv = row.querySelector(".col-12.h3");
         const titleDiv = Array.from(row.querySelectorAll("div.col-12"))
-    .find(div => !div.classList.contains("h3") && !div.classList.contains("mb-0"));
+        .find(div => !div.classList.contains("h3") && !div.classList.contains("mb-0"));
 
-    const jobTitle = titleDiv ? titleDiv.textContent.trim() : "";
+        const jobTitle = titleDiv ? titleDiv.textContent.trim() : "";
         if (!companyDiv) return;
         if (!titleDiv) return;
 
@@ -160,8 +162,17 @@ function injectRatingsTable() {
 
         const companyCell = row.querySelector(".title");
         if (!companyCell) return;
+        const titleCell = row.querySelector(".text-left");
+        if (!titleCell) return;
 
+        
         const company = companyCell.innerText.trim();
+        const title = titleCell.innerText.trim();
+        const location = "";
+
+        console.log("Extracted job data for ratings table:", { title, company, location });
+
+        const jobData = { title: title.toUpperCase(), company: company.toUpperCase(), location: location.toUpperCase() };
         const key = "review_" + company;
         const savedRaw = localStorage.getItem(key);
         const saved = savedRaw ? JSON.parse(savedRaw) : null;
@@ -221,12 +232,15 @@ function injectPrijaveReviewButtons() {
 
         if (row.querySelector(".my-prijave-review-btn")) return;
 
-        const title = row.querySelector(".h3, .h5");
-        if (!title) return;
+        const title = row.querySelector('span.d-block.h5.mb-0')?.innerText.trim() || "";
+        const company = row.querySelector('span.d-block.h6.font-weight-light.mb-0')?.innerText.replace(/^[^A-Za-z0-9]*|\\s+$/g, '').trim() || "";
+        const location = row.querySelectorAll('span.d-block.h6.font-weight-light.mb-0')[1]?.innerText.replace(/^[^A-Za-z0-9]*|\\s+$/g, '').trim() || "";
 
-        const company = title.innerText.trim();
+        console.log("Extracted job data for ratings table:", { title, company, location });
+
+        const jobData = { title: title.toUpperCase(), company: company.toUpperCase(), location: location.toUpperCase() };
+        
         const key = "review_" + company;
-
         const savedRaw = localStorage.getItem(key);
         const saved = savedRaw ? JSON.parse(savedRaw) : null;
 
@@ -438,17 +452,17 @@ function showAddReviewModal(jobData, onSave, context = {}) {
         // -----------------------------
         // ⭐ STAR LOGIC (FIXED)
         // -----------------------------
-        function setupStars(selector) {
+        function setupStars(selector, initial = 0) {
             const container = modalOverlay.querySelector(selector);
-            if (!container) return () => 5;
+            if (!container) return () => initial;
 
             const stars = container.querySelectorAll("span");
-            let selected = 5;
+            let selected = initial;
 
             const update = () => {
                 stars.forEach(s => {
                     const val = parseInt(s.dataset.value);
-                    s.classList.toggle("active", val <= selected);
+                    s.classList.toggle("active", selected > 0 && val <= selected);
                 });
             };
 
@@ -463,11 +477,12 @@ function showAddReviewModal(jobData, onSave, context = {}) {
             return () => selected;
         }
 
-        const getOverall = setupStars('[data-target="overall"]');
-        const getSub1 = setupStars('[data-target="sub1"]');
-        const getSub2 = setupStars('[data-target="sub2"]');
-        const getSub3 = setupStars('[data-target="sub3"]');
-        const getSub4 = setupStars('[data-target="sub4"]');
+        // If there is a saved review, prefill, otherwise start with 0 (gray)
+        const getOverall = setupStars('[data-target="overall"]', savedReview?.overall ?? 0);
+        const getSub1 = setupStars('[data-target="sub1"]', savedReview?.sub1 ?? 0);
+        const getSub2 = setupStars('[data-target="sub2"]', savedReview?.sub2 ?? 0);
+        const getSub3 = setupStars('[data-target="sub3"]', savedReview?.sub3 ?? 0);
+        const getSub4 = setupStars('[data-target="sub4"]', savedReview?.sub4 ?? 0);
 
         // -----------------------------
         // ❌ CLOSE BUTTON (FIXED)
