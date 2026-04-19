@@ -127,13 +127,36 @@ def add_review_data():
 
 @app.route("/getreview")
 def get_review_data():
-	company = request.args.get('company')
-	position = request.args.get('position')
-	location = request.args.get('location')
+	company = normalize((request.args.get('company') or '').strip())
+	position = (request.args.get('position') or '').strip().upper()
+	location = (request.args.get('location') or '').strip().upper()
+
+	if not company or not position or not location:
+		return jsonify({
+			"averages": {
+				"overall": 0,
+				"work_environment": 0,
+				"location": 0,
+				"flexibility": 0,
+				"communication": 0
+			},
+			"reviews": []
+		})
 
 	companies_ref = db.collection('companies')
 	query = companies_ref.where('name', '==', company).limit(1).stream()
 	existing_company_doc = next(query, None)
+	if not existing_company_doc:
+		return jsonify({
+			"averages": {
+				"overall": 0,
+				"work_environment": 0,
+				"location": 0,
+				"flexibility": 0,
+				"communication": 0
+			},
+			"reviews": []
+		})
 	company_id = existing_company_doc.id
 
 	reviews_ref = db.collection('reviews')
@@ -153,25 +176,43 @@ def get_review_data():
 	communication_averages = []
 
 	for review in reviews:
-		user_doc = db.collection("users").document(review.get('user'))
-		overall_averages.append(int(review.get('overall_rating')))
-		work_environment_averages.append(int(review.get('work_environment')))
-		location_rating_averages.append(int(review.get('location_rating')))
-		flexibility_averages.append(int(review.get('flexibility')))
-		communication_averages.append(int(review.get('communication')))
+		overall_value = review.get('rating', review.get('overall_rating'))
+		work_environment_value = review.get('work_environment')
+		location_rating_value = review.get('location_rating')
+		flexibility_value = review.get('flexibility')
+		communication_value = review.get('communication')
+
+		if overall_value is not None:
+			overall_averages.append(int(overall_value))
+		if work_environment_value is not None:
+			work_environment_averages.append(int(work_environment_value))
+		if location_rating_value is not None:
+			location_rating_averages.append(int(location_rating_value))
+		if flexibility_value is not None:
+			flexibility_averages.append(int(flexibility_value))
+		if communication_value is not None:
+			communication_averages.append(int(communication_value))
 
 		if review.get('anonymous'):
 			review['user'] = 'Anonymous'
 		else:
-			review['user'] = user_doc.get('display_name')
+			user_id = review.get('user')
+			if user_id:
+				user_doc = db.collection("users").document(user_id).get()
+				review['user'] = user_doc.get('display_name') if user_doc.exists else 'Unknown user'
+			else:
+				review['user'] = 'Unknown user'
+
+	def safe_average(values):
+		return average_rating(values) if len(values) > 0 else 0
 
 	return jsonify({
 		"averages": {
-			"overall": average_rating(overall_averages),
-			"work_environment": average_rating(work_environment_averages),
-			"location": average_rating(location_rating_averages),
-			"flexibility": average_rating(flexibility_averages),
-			"communication": average_rating(communication_averages)
+			"overall": safe_average(overall_averages),
+			"work_environment": safe_average(work_environment_averages),
+			"location": safe_average(location_rating_averages),
+			"flexibility": safe_average(flexibility_averages),
+			"communication": safe_average(communication_averages)
 		},
 		"reviews": reviews
 	})

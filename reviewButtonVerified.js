@@ -32,7 +32,6 @@ function injectVerifiedReviewButtons() {
     return;
     }
 
-    console.log("BANANA (review)");
 
     const jobRows = document.querySelectorAll(".row.border-bottom");
 
@@ -94,7 +93,6 @@ function injectRatingsTable() {
         return;
     }
 
-    console.log("BANANA (table ratings)");
 
     const table = document.querySelector("table");
     if (!table) return;
@@ -169,7 +167,6 @@ function injectPrijaveReviewButtons() {
         return;
     }
 
-    console.log("BANANA (prijave review)");
 
     const rows = document.querySelectorAll(".row.border-bottom");
 

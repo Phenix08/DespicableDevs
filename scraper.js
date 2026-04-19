@@ -3,7 +3,7 @@ function isMjobSite() {
 }
 
 function extractJobData(jobContainer) {
-    console.log("Extracting job data from container:", jobContainer);
+    /*console.log("Extracting job data from container:", jobContainer);*/
     const jobData = {
         title: '',
         company: '',
@@ -82,7 +82,7 @@ function findStudentskiJobItems() {
 
 function postJobData(jobData) {
     return new Promise(resolve => {
-        console.log('Sending job data to background:', jobData);
+        /*console.log('Sending job data to background:', jobData);*/
         chrome.runtime.sendMessage({ type: 'postJobData', jobData }, response => {
             if (chrome.runtime.lastError) {
                 console.error('Background message error:', chrome.runtime.lastError);
@@ -96,17 +96,17 @@ function postJobData(jobData) {
                 return;
             }
 
-            console.log('Background successfully posted job data');
+            /*console.log('Background successfully posted job data');*/
             resolve({ success: true });
         });
     });
 }
 
 async function scrapeJobs({ newOnly = false } = {}) {
-    console.log("Starting job scraping...");
+    /*console.log("Starting job scraping...");*/
 
     if (isMjobSite()) {
-        console.log("Detected mjob.si site. Scraping job cards...");
+        /*console.log("Detected mjob.si site. Scraping job cards...");*/
 
         let attempts = 0;
         const maxAttempts = 8;
@@ -117,42 +117,42 @@ async function scrapeJobs({ newOnly = false } = {}) {
                 jobCards = jobCards.filter(card => !scrapedJobCards.has(card));
             }
 
-            console.log(`Found ${jobCards.length} job cards${newOnly ? ' (new only)' : ''}.`);
+            /*console.log(`Found ${jobCards.length} job cards${newOnly ? ' (new only)' : ''}.`);*/
 
             if (!newOnly && jobCards.length === 0 && attempts < maxAttempts) {
                 attempts += 1;
-                console.log(`No job cards yet, retrying in 500ms (attempt ${attempts}/${maxAttempts})`);
+                /*console.log(`No job cards yet, retrying in 500ms (attempt ${attempts}/${maxAttempts})`);*/
                 setTimeout(() => tryScrape(), 500);
                 return;
             }
 
             for (const [index, card] of jobCards.entries()) {
                 const jobData = extractJobData(card);
-                console.log(`Job ${index + 1}: Title: "${jobData.title}", Company: "${jobData.company}", Location: "${jobData.location}"`);
+                /*console.log(`Job ${index + 1}: Title: "${jobData.title}", Company: "${jobData.company}", Location: "${jobData.location}"`);*/
                 scrapedJobCards.add(card);
                 postJobData(jobData);
             }
 
             if (jobCards.length === 0 && !newOnly) {
-                console.log('No job cards found after retrying.');
+                /*console.log('No job cards found after retrying.');*/
             }
         };
 
         await tryScrape();
     } else {
-        console.log("Detected studentski-servis site. Scraping job items...");
+        /*console.log("Detected studentski-servis site. Scraping job items...");*/
 
         let jobItems = findStudentskiJobItems();
         if (newOnly) {
             jobItems = jobItems.filter(item => !scrapedStudentJobItems.has(item));
         }
 
-        console.log(`Found ${jobItems.length} studentski job items${newOnly ? ' (new only)' : ''}.`);
+        /*console.log(`Found ${jobItems.length} studentski job items${newOnly ? ' (new only)' : ''}.`);*/
 
         for (const [index, item] of jobItems.entries()) {
             const jobInfoContainer = item.querySelector('.col-12.col-md-8') || item.querySelector("[class*='col-12'][class*='col-md-8']") || item;
             const jobData = extractJobData(jobInfoContainer || item);
-            console.log(`Job ${index + 1}: Title: "${jobData.title}", Company: "${jobData.company}", Location: "${jobData.location}"`);
+            /*console.log(`Job ${index + 1}: Title: "${jobData.title}", Company: "${jobData.company}", Location: "${jobData.location}"`);*/
             scrapedStudentJobItems.add(item);
             postJobData(jobData);
         }
@@ -165,13 +165,17 @@ async function scrapeJobs({ newOnly = false } = {}) {
 
                 const jobInfoContainer = dBlockContainer.closest('article.job-item')?.querySelector('.col-12.col-md-8') || dBlockContainer.closest("[class*='col-12'][class*='col-md-8']");
                 const jobData = extractJobData(jobInfoContainer || dBlockContainer);
-                console.log(`Job ${index + 1}: Title: "${jobData.title}", Company: "${jobData.company}", Location: "${jobData.location}"`);
+                /*console.log(`Job ${index + 1}: Title: "${jobData.title}", Company: "${jobData.company}", Location: "${jobData.location}"`);*/
                 postJobData(jobData);
             }
         }
     }
 
-    console.log("Job scraping completed.");
+    /*console.log("Job scraping completed.");*/
+
+    window.dispatchEvent(new CustomEvent('despicable-jobs-scraped', {
+        detail: { newOnly }
+    }));
 }
 
 function observeJobChanges() {
