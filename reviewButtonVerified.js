@@ -1,5 +1,29 @@
 function injectVerifiedReviewButtons() {
 
+    let inlineLogoStyle = document.getElementById('despicable-devs-inline-logo-style');
+    if (!inlineLogoStyle) {
+        inlineLogoStyle = document.createElement('style');
+        inlineLogoStyle.id = 'despicable-devs-inline-logo-style';
+        inlineLogoStyle.textContent = `
+            .extension-review-inline-logo {
+                display: inline-block;
+                width: 1.43em;
+                height: 1.43em;
+                background-color: currentColor;
+                -webkit-mask-image: url("${chrome.runtime.getURL('Logos/Logo.svg')}");
+                -webkit-mask-repeat: no-repeat;
+                -webkit-mask-size: contain;
+                -webkit-mask-position: center;
+                mask-image: url("${chrome.runtime.getURL('Logos/Logo.svg')}");
+                mask-repeat: no-repeat;
+                mask-size: contain;
+                mask-position: center;
+                vertical-align: middle;
+            }
+        `;
+        document.head.appendChild(inlineLogoStyle);
+    }
+
     if (!window.location.href.includes("/studenti/moje-izkusnje/")) {
     return;
     }
@@ -31,9 +55,9 @@ function injectVerifiedReviewButtons() {
         const saved = savedRaw ? JSON.parse(savedRaw) : null;
 
         if (saved) {
-            btn.innerHTML = "★★★★★".slice(0, saved.overall) + "☆☆☆☆☆".slice(saved.overall);
+            btn.innerHTML = '<span class="extension-review-stars-logo" aria-hidden="true"></span>';
         } else {
-            btn.innerText = "Add review";
+            btn.innerHTML = '<span style="display:inline-flex;align-items:center;gap:0.35rem;font-size:1.5em;"><span class="extension-review-inline-logo" aria-hidden="true"></span><span>Add review</span></span>';
         }
 
         // FLEX layout
@@ -48,7 +72,7 @@ function injectVerifiedReviewButtons() {
             event.stopPropagation();
             showAddReviewModal(text, (data) => {
                 localStorage.setItem(key, JSON.stringify(data));
-                btn.innerHTML = "★★★★★".slice(0, data.overall) + "☆☆☆☆☆".slice(data.overall);
+                btn.innerHTML = '<span class="extension-review-stars-logo" aria-hidden="true"></span>';
             });
         };
 
@@ -373,7 +397,8 @@ function showAddReviewModal(company, onSave) {
                     sub3: getSub3(),
                     sub4: getSub4(),
 
-                    comment: modalOverlay.querySelector('#review-comment')?.value || ""
+                    comment: modalOverlay.querySelector('#review-comment')?.value || "",
+                    anonymous: modalOverlay.querySelector('#anonymous-review')?.checked || false
                 };
 
                 // REQUIRED FIELDS CHECK

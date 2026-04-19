@@ -50,8 +50,8 @@
         </div>
 
         <!-- ⭐ OVERALL RATING -->
-        <div class="section-title">Overall Rating</div>
-        <div class="stars-row" data-target="overall">
+        <div class="section-title overall-rating-title">Overall Rating</div>
+        <div class="stars-row overall-stars-row" data-target="overall">
             <span data-value="1">★</span>
             <span data-value="2">★</span>
             <span data-value="3">★</span>
@@ -60,7 +60,7 @@
         </div>
 
         <!-- 📊 SUB RATINGS -->
-        <div class="section-title">Detailed Ratings</div>
+        <div class="section-title detailed-ratings-title">Detailed Ratings</div>
 
         <div class="sub-ratings-grid">
 
@@ -73,7 +73,7 @@
                 </div>
             </div>
 
-            <div class="rating-box">
+            <div class="rating-box rating-box-right">
                 <label>Location</label>
                 <div class="stars-row" data-target="sub2">
                     <span data-value="1">★</span><span data-value="2">★</span>
@@ -91,7 +91,7 @@
                 </div>
             </div>
 
-            <div class="rating-box">
+            <div class="rating-box rating-box-right">
                 <label>Flexibility</label>
                 <div class="stars-row" data-target="sub4">
                     <span data-value="1">★</span><span data-value="2">★</span>
@@ -105,6 +105,11 @@
         <!-- 💬 COMMENT -->
         <div class="section-title">Comment</div>
         <textarea id="review-comment" placeholder="Write your experience..."></textarea>
+
+        <label class="anonymous-toggle" for="anonymous-review">
+            <input type="checkbox" id="anonymous-review" />
+            <span>Anonymous</span>
+        </label>
 
         <!-- 🚀 BUTTON -->
         <div class="actions">

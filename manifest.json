@@ -27,7 +27,7 @@
 
   "web_accessible_resources": [
     {
-      "resources": ["reviewPopup.html", "addReviewPopup.html", "auth.html", "popUpStyle.css", "popUpStyle-mjob.css", "Logos/*.svg", "Logos/Montserrat-Regular.woff"],
+      "resources": ["reviewPopup.html", "addReviewPopup.html", "auth.html", "popUpStyle.css", "popUpStyle-mjob.css", "Logos/LogoName.svg", "Logos/Logo.svg","Logos/Montserrat-Regular.woff"],
       "matches": ["<all_urls>"]
     }
   ],

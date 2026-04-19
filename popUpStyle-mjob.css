@@ -33,6 +33,37 @@
     border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
+#review-modal {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.35) transparent;
+}
+
+#review-modal::-webkit-scrollbar {
+    width: 8px;
+}
+
+#review-modal::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#review-modal::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.35);
+    border-radius: 999px;
+}
+
+#review-modal::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+#review-modal::-webkit-scrollbar-button:single-button {
+    display: none;
+    width: 0;
+    height: 0;
+    background: transparent;
+}
+
 #review-modal-header {
     position: relative;
     display: flex;
@@ -328,6 +359,66 @@
     background-color: #fa8ce8;
     color: black;
     border-color: var(--primary-color);
+}
+
+.stars-row {
+    display: flex;
+    gap: 4px;
+    font-size: 32px;
+    cursor: pointer;
+}
+
+.stars-row span {
+    color: #ccc;
+    transition: 0.2s;
+}
+
+.stars-row span.active {
+    color: #f9c900;
+}
+
+.sub-ratings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.rating-box {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.rating-box label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.rating-box .stars-row {
+    font-size: 34px;
+}
+
+.rating-box-right {
+    align-items: flex-end;
+    text-align: right;
+}
+
+.rating-box-right .stars-row {
+    justify-content: flex-end;
+}
+
+.overall-rating-title {
+    text-align: center;
+}
+
+.detailed-ratings-title {
+    text-align: center;
+}
+
+.overall-stars-row {
+    justify-content: center;
+    font-size: 46px;
 }
 
 button.btn.btn-action:hover {
