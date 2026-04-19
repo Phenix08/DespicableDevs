@@ -270,7 +270,7 @@ def edit_review_data(review_id):
 	return {"status": "updated"}
 
 @app.route("/likereview/<review_id>", methods=["PUT"])
-def edit_review_data(review_id):
+def like_review_data(review_id):
 
 	review_ref = db.collection("reviews").document(review_id)
 
