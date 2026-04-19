@@ -68,6 +68,8 @@ function isMjobSite() {
 }
 
 const reviewAverageCache = new Map();
+const reviewSummaryCache = new Map();
+const reviewSummaryInFlight = new Map();
 
 function normalizeCompanyForLookup(name) {
     if (!name) return '';
@@ -101,6 +103,21 @@ function buildReviewLookupParams(jobData) {
     };
 }
 
+function getListingCacheKey(jobData) {
+    const params = buildReviewLookupParams(jobData);
+    return {
+        params,
+        cacheKey: `${params.company}::${params.position}::${params.location}`
+    };
+}
+
+function invalidateListingReviewCache(jobData) {
+    const { cacheKey } = getListingCacheKey(jobData);
+    reviewSummaryCache.delete(cacheKey);
+    reviewAverageCache.delete(cacheKey);
+    reviewSummaryInFlight.delete(cacheKey);
+}
+
 function applyAverageStars(starsRoot, averageRating) {
     if (!starsRoot) return;
 
@@ -118,8 +135,15 @@ function applyAverageStars(starsRoot, averageRating) {
 
 async function fetchListingAverageRating(jobData) {
     const forceRefresh = jobData?.forceRefresh === true;
-    const params = buildReviewLookupParams(jobData);
-    const cacheKey = `${params.company}::${params.position}::${params.location}`;
+    const summary = await fetchListingReviewSummary(jobData, { forceRefresh });
+    if (!summary) return null;
+
+    const overall = Number(summary?.averages?.overall);
+    return Number.isFinite(overall) ? overall : null;
+}
+
+async function fetchListingReviewSummary(jobData, { forceRefresh = false } = {}) {
+    const { params, cacheKey } = getListingCacheKey(jobData);
 
     if (!params.company || !params.position || !params.location) {
         console.warn('Skipping review lookup due to missing params:', {
@@ -129,11 +153,15 @@ async function fetchListingAverageRating(jobData) {
         return null;
     }
 
-    if (!forceRefresh && reviewAverageCache.has(cacheKey)) {
-        return reviewAverageCache.get(cacheKey);
+    if (!forceRefresh && reviewSummaryCache.has(cacheKey)) {
+        return reviewSummaryCache.get(cacheKey);
     }
 
-    const result = await new Promise((resolve) => {
+    if (reviewSummaryInFlight.has(cacheKey)) {
+        return reviewSummaryInFlight.get(cacheKey);
+    }
+
+    const pendingRequest = new Promise((resolve) => {
         chrome.runtime.sendMessage({ type: 'getReviewData', params }, (response) => {
             if (chrome.runtime.lastError) {
                 resolve({ success: false, error: chrome.runtime.lastError.message });
@@ -141,25 +169,214 @@ async function fetchListingAverageRating(jobData) {
             }
             resolve(response || { success: false, error: 'No response from background' });
         });
-    });
+    })
+        .then((result) => {
+            if (!result?.success) {
+                console.warn('Review lookup failed:', {
+                    lookupParams: params,
+                    error: result?.error,
+                    status: result?.status,
+                    rawResponse: result
+                });
+                reviewSummaryCache.set(cacheKey, null);
+                reviewAverageCache.set(cacheKey, null);
+                return null;
+            }
 
-    if (!result?.success) {
-        console.warn('Review lookup failed:', {
-            lookupParams: params,
-            error: result?.error,
-            status: result?.status,
-            rawResponse: result
+            /*console.log('Reviews received for listing lookup:', params, result?.data?.reviews || []);*/
+
+            const overall = Number(result?.data?.averages?.overall);
+            const parsed = Number.isFinite(overall) ? overall : null;
+            reviewSummaryCache.set(cacheKey, result.data || null);
+            reviewAverageCache.set(cacheKey, parsed);
+            return result.data || null;
+        })
+        .finally(() => {
+            reviewSummaryInFlight.delete(cacheKey);
         });
-        reviewAverageCache.set(cacheKey, null);
-        return null;
+
+    reviewSummaryInFlight.set(cacheKey, pendingRequest);
+    return pendingRequest;
+}
+
+function renderPopupAverageData(modalOverlay, summary) {
+    const averages = summary?.averages || {};
+    const reviews = Array.isArray(summary?.reviews) ? summary.reviews : [];
+    const overall = Number(averages.overall);
+
+    const starsContainer = modalOverlay.querySelector('.stars');
+    if (starsContainer) {
+        starsContainer.innerHTML = '<span class="extension-review-stars-text"><span class="stars-base">★★★★★</span><span class="stars-fill">★★★★★</span></span>';
+        const starsRoot = starsContainer.querySelector('.extension-review-stars-text');
+        applyAverageStars(starsRoot, overall);
     }
 
-    console.log('Reviews received for listing lookup:', params, result?.data?.reviews || []);
+    const reviewCountNode = modalOverlay.querySelector('.review-count');
+    if (reviewCountNode) {
+        const count = reviews.length;
+        reviewCountNode.textContent = `Based on ${count} review${count === 1 ? '' : 's'}`;
+    }
 
-    const overall = Number(result?.data?.averages?.overall);
-    const parsed = Number.isFinite(overall) ? overall : null;
-    reviewAverageCache.set(cacheKey, parsed);
-    return parsed;
+    const orderedAverages = [
+        Number(averages.work_environment),
+        Number(averages.location),
+        Number(averages.communication),
+        Number(averages.flexibility)
+    ];
+
+    const barFills = modalOverlay.querySelectorAll('.rating-bar .bar-fill');
+    barFills.forEach((barFill, index) => {
+        const value = orderedAverages[index];
+        const clamped = Number.isFinite(value) ? Math.max(0, Math.min(5, value)) : 0;
+        barFill.style.width = `${(clamped / 5) * 100}%`;
+    });
+}
+
+function getReviewRating(review) {
+    const raw = Number(review?.rating ?? review?.overall_rating ?? 0);
+    if (!Number.isFinite(raw)) return 0;
+    return Math.max(0, Math.min(5, raw));
+}
+
+function formatReviewDate(value) {
+    if (!value) return 'Unknown date';
+
+    if (typeof value === 'string') {
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime())
+            ? value
+            : parsed.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
+    }
+
+    if (typeof value === 'object') {
+        const seconds = value._seconds ?? value.seconds;
+        if (typeof seconds === 'number') {
+            const parsed = new Date(seconds * 1000);
+            return parsed.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
+        }
+    }
+
+    return 'Unknown date';
+}
+
+function toBooleanFlag(value) {
+    if (value === true) return true;
+    if (typeof value === 'string') {
+        return ['true', '1', 'yes', 'on'].includes(value.trim().toLowerCase());
+    }
+    if (typeof value === 'number') return value !== 0;
+    return false;
+}
+
+function getReviewerStatus(review) {
+    if (toBooleanFlag(review?.worked)) {
+        return { label: 'worked here', type: 'worked' };
+    }
+    if (toBooleanFlag(review?.applied)) {
+        return { label: 'applied', type: 'applied' };
+    }
+    return null;
+}
+
+function wireThumbsUpButtons(modalOverlay) {
+    const thumbsUpButtons = modalOverlay.querySelectorAll('.thumbs-up-btn');
+    thumbsUpButtons.forEach((button) => {
+        button.addEventListener('click', function onThumbsUpClick() {
+            const isUpvoted = this.getAttribute('data-upvoted') === 'true';
+            const currentCount = parseInt(this.textContent.split(' ')[1], 10) || 0;
+
+            if (isUpvoted) {
+                this.setAttribute('data-upvoted', 'false');
+                this.textContent = `👍 ${Math.max(0, currentCount - 1)}`;
+            } else {
+                this.setAttribute('data-upvoted', 'true');
+                this.textContent = `👍 ${currentCount + 1}`;
+            }
+        });
+    });
+}
+
+function renderPopupComments(modalOverlay, summary) {
+    const commentsSection = modalOverlay.querySelector('.comments-section');
+    if (!commentsSection) return;
+
+    const reviews = Array.isArray(summary?.reviews) ? summary.reviews : [];
+    commentsSection.querySelectorAll('.comment').forEach((node) => node.remove());
+
+    if (reviews.length === 0) {
+        const emptyNode = document.createElement('div');
+        emptyNode.className = 'comment';
+        emptyNode.textContent = 'No reviews yet for this listing.';
+        commentsSection.appendChild(emptyNode);
+        return;
+    }
+
+    reviews.forEach((review) => {
+        const rating = getReviewRating(review);
+        const filled = Math.round(rating);
+        const starsText = '★★★★★'.slice(0, filled) + '☆☆☆☆☆'.slice(filled);
+
+        const commentNode = document.createElement('div');
+        commentNode.className = 'comment';
+
+        const header = document.createElement('div');
+        header.className = 'comment-header';
+
+        const username = document.createElement('div');
+        username.className = 'comment-username';
+        username.textContent = review?.user || 'Anonymous';
+
+        const reviewerStatus = getReviewerStatus(review);
+        if (reviewerStatus) {
+            const statusBadge = document.createElement('span');
+            statusBadge.className = `comment-status-badge ${reviewerStatus.type}`;
+
+            const statusIcon = document.createElement('span');
+            statusIcon.className = 'comment-status-icon';
+            statusIcon.setAttribute('aria-hidden', 'true');
+
+            const statusText = document.createElement('span');
+            statusText.textContent = reviewerStatus.label;
+
+            statusBadge.appendChild(statusIcon);
+            statusBadge.appendChild(statusText);
+            username.appendChild(statusBadge);
+        }
+
+        const stars = document.createElement('div');
+        stars.className = 'comment-stars';
+        stars.textContent = starsText;
+
+        header.appendChild(username);
+        header.appendChild(stars);
+
+        const body = document.createElement('div');
+        body.className = 'comment-text';
+        body.textContent = review?.comment || '';
+
+        const footer = document.createElement('div');
+        footer.className = 'comment-footer';
+
+        const date = document.createElement('span');
+        date.className = 'comment-date';
+        date.textContent = formatReviewDate(review?.date);
+
+        const likesCount = Number(review?.likes);
+        const thumbsUp = document.createElement('button');
+        thumbsUp.className = 'thumbs-up-btn';
+        thumbsUp.setAttribute('data-upvoted', 'false');
+        thumbsUp.textContent = `👍 ${Number.isFinite(likesCount) ? likesCount : 0}`;
+
+        footer.appendChild(date);
+        footer.appendChild(thumbsUp);
+
+        commentNode.appendChild(header);
+        commentNode.appendChild(body);
+        commentNode.appendChild(footer);
+        commentsSection.appendChild(commentNode);
+    });
+
+    wireThumbsUpButtons(modalOverlay);
 }
 
 function updateButtonAverageStars(btn, jobData) {
@@ -254,6 +471,34 @@ function ensureInjectedStarLogoStyles() {
             overflow: hidden;
             white-space: nowrap;
             width: 100%;
+        }
+        .comment-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.28rem;
+            margin-left: 0.45rem;
+            font-style: italic;
+            font-size: 0.82em;
+        }
+        .comment-status-icon {
+            width: 0.95em;
+            height: 0.95em;
+            display: inline-block;
+            background-color: currentColor;
+            -webkit-mask-image: url("${chrome.runtime.getURL('Logos/Logo.svg')}");
+            -webkit-mask-repeat: no-repeat;
+            -webkit-mask-size: contain;
+            -webkit-mask-position: center;
+            mask-image: url("${chrome.runtime.getURL('Logos/Logo.svg')}");
+            mask-repeat: no-repeat;
+            mask-size: contain;
+            mask-position: center;
+        }
+        .comment-status-badge.applied {
+            color: #8a8a8a;
+        }
+        .comment-status-badge.worked {
+            color: #8BC832;
         }
     `;
     document.head.appendChild(style);
@@ -614,6 +859,9 @@ function wireInlineAddReview(modalOverlay, jobData) {
         const postResult = await postInlineReviewFromForm(reviewData);
         if (!postResult?.success) {
             console.warn('Failed to post inline review:', postResult?.error || 'Unknown error');
+        } else {
+            invalidateListingReviewCache(reviewData);
+            refreshStudentskiListingStars({ forceRefresh: true });
         }
 
         alert('Review saved successfully!');
@@ -673,24 +921,16 @@ function showReviewModal(jobData = {}) {
             headerTitle.innerHTML = `${jobData.title}<br><span style="font-size: 0.8rem; font-weight: 400; color: var(--muted-color);">${jobData.company}${jobData.location ? ' • ' + jobData.location : ''}</span>`;
         }
 
-        // Add thumbs up functionality
-        const thumbsUpButtons = modalOverlay.querySelectorAll('.thumbs-up-btn');
-        thumbsUpButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const isUpvoted = this.getAttribute('data-upvoted') === 'true';
-                const currentCount = parseInt(this.textContent.split(' ')[1]);
-
-                if (isUpvoted) {
-                    // Remove upvote
-                    this.setAttribute('data-upvoted', 'false');
-                    this.textContent = `👍 ${currentCount - 1}`;
-                } else {
-                    // Add upvote
-                    this.setAttribute('data-upvoted', 'true');
-                    this.textContent = `👍 ${currentCount + 1}`;
-                }
+        fetchListingReviewSummary({ ...jobData, forceRefresh: true }, { forceRefresh: true })
+            .then((summary) => {
+                renderPopupAverageData(modalOverlay, summary);
+                renderPopupComments(modalOverlay, summary);
+            })
+            .catch((error) => {
+                console.warn('Failed to load popup averages', error);
+                renderPopupAverageData(modalOverlay, null);
+                renderPopupComments(modalOverlay, null);
             });
-        });
 
         wireInlineAddReview(modalOverlay, jobData);
 
@@ -728,5 +968,5 @@ document.body.addEventListener('click', () => {
 });
 
 window.addEventListener('despicable-jobs-scraped', () => {
-    refreshStudentskiListingStars({ forceRefresh: true });
+    refreshStudentskiListingStars({ forceRefresh: false });
 });
