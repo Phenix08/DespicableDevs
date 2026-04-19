@@ -13,6 +13,11 @@ const GET_REVIEW_ENDPOINTS = [
     'http://127.0.0.1:5000/getreview'
 ];
 
+const GET_COMPANY_ENDPOINTS = [
+    'http://localhost:5000/getcompany',
+    'http://127.0.0.1:5000/getcompany'
+];
+
 function fetchWithTimeout(url, options = {}, timeout = 6000) {
     return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
@@ -125,6 +130,30 @@ async function getReviewData(params) {
     return lastError || { success: false, error: 'All endpoints failed' };
 }
 
+async function getCompanyData(params) {
+    let lastError = null;
+
+    for (const endpoint of GET_COMPANY_ENDPOINTS) {
+        try {
+            const response = await tryGetCompanyData(endpoint, params);
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.warn('Failed to fetch review data from', endpoint, response.status, errorText);
+                lastError = { success: false, status: response.status, error: errorText || ('HTTP ' + response.status) };
+                continue;
+            }
+
+            const body = await response.json();
+            return { success: true, status: response.status, data: body };
+        } catch (error) {
+            console.warn('Review GET failed for', endpoint, error);
+            lastError = { success: false, error: error?.message || String(error) };
+        }
+    }
+
+    return lastError || { success: false, error: 'All endpoints failed' };
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === 'postJobData') {
         postJobData(message.jobData)
@@ -141,6 +170,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     if (message?.type === 'getReviewData') {
+        getReviewData(message.params)
+            .then(result => sendResponse(result))
+            .catch(error => sendResponse({ success: false, error: error?.message || String(error) }));
+        return true;
+    }
+
+	if (message?.type === 'getCompanyData') {
         getReviewData(message.params)
             .then(result => sendResponse(result))
             .catch(error => sendResponse({ success: false, error: error?.message || String(error) }));
