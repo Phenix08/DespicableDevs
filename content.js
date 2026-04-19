@@ -358,6 +358,38 @@ function setupInlineStars(modalOverlay, selector) {
     return () => selected;
 }
 
+async function postInlineReviewFromForm(reviewData) {
+    const isAnonymous = reviewData.anonymous === true;
+    const user = (reviewData.user || '').trim();
+
+    const payload = {
+        company: reviewData.company,
+        title: reviewData.jobTitle,
+        location: reviewData.location,
+        overall_rating: reviewData.overall,
+        work_environment: reviewData.sub1,
+        location_rating: reviewData.sub2,
+        communication: reviewData.sub3,
+        flexibility: reviewData.sub4,
+        comment: reviewData.comment,
+        isAnonymous: isAnonymous,
+        didApply: reviewData.didApply === true,
+        didWork: reviewData.didWork === true,
+        user: user
+    };
+
+    return new Promise((resolve) => {
+        console.log('Sending review payload to backend (inline form):', payload);
+        chrome.runtime.sendMessage({ type: 'postReviewData', reviewData: payload }, (response) => {
+            if (chrome.runtime.lastError) {
+                resolve({ success: false, error: chrome.runtime.lastError.message });
+                return;
+            }
+            resolve(response || { success: false, error: 'No response from background' });
+        });
+    });
+}
+
 function wireInlineAddReview(modalOverlay, jobData) {
     const titleInput = modalOverlay.querySelector('#inline-job-title-input');
     const companyInput = modalOverlay.querySelector('#inline-company-input');
@@ -381,7 +413,7 @@ function wireInlineAddReview(modalOverlay, jobData) {
     const saveBtn = modalOverlay.querySelector('.inline-save-review-btn');
     if (!saveBtn) return;
 
-    saveBtn.addEventListener('click', (event) => {
+    saveBtn.addEventListener('click', async (event) => {
         event.preventDefault();
 
         const reviewData = {
@@ -393,7 +425,9 @@ function wireInlineAddReview(modalOverlay, jobData) {
             sub2: getSub2(),
             sub3: getSub3(),
             sub4: getSub4(),
-            comment: commentInput?.value.trim() || ''
+            comment: commentInput?.value.trim() || '',
+            anonymous: false,
+            user: "sara.strakl4@gmail.com"
         };
 
         if (!reviewData.company || !reviewData.jobTitle || !reviewData.location) {
@@ -401,9 +435,19 @@ function wireInlineAddReview(modalOverlay, jobData) {
             return;
         }
 
+        if (!reviewData.overall || !reviewData.sub1 || !reviewData.sub2 || !reviewData.sub3 || !reviewData.sub4) {
+            alert('Please rate all categories (Overall and all detailed ratings)');
+            return;
+        }
+
         const storageKey = 'inline_review_' + [reviewData.company, reviewData.jobTitle, reviewData.location].join('::');
         localStorage.setItem(storageKey, JSON.stringify(reviewData));
         console.log('Saved inline review:', reviewData);
+
+        const postResult = await postInlineReviewFromForm(reviewData);
+        if (!postResult?.success) {
+            console.warn('Failed to post inline review:', postResult?.error || 'Unknown error');
+        }
 
         alert('Review saved successfully!');
     });

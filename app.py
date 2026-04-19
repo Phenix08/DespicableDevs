@@ -60,11 +60,15 @@ def add_company_data():
 
 @app.route("/sendreview", methods=["POST"])
 def add_review_data():
-	data = request.get_json()
+	data = request.get_json() or {}
 
 	companies_ref = db.collection('companies')
-	query = companies_ref.where('name', '==', data.get('company')).limit(1).stream()
+	company = data.get('company')
+	company_normalized = normalize(company)
+	query = companies_ref.where('name', '==', company_normalized).limit(1).stream()
 	existing_company_doc = next(query, None)
+	if not existing_company_doc:
+		return {"error": "Company not found"}, 400
 	company = existing_company_doc.id
 
 	position = data.get('title')
@@ -81,17 +85,17 @@ def add_review_data():
 	comment = data.get('comment')
 
 	users_ref = db.collection('users')
-	query = companies_ref.where('email', '==', data.get('user')).limit(1).stream()
+	query = users_ref.where('email', '==', data.get('user')).limit(1).stream()
 	existing_user_doc = next(query, None)
-	user = existing_user_doc.id
-	anonymus = data.get('isAnonymus')
+	user = existing_user_doc.id if existing_user_doc else None
+	anonymous = data.get('isAnonymous')
 
 	applied = data.get('didApply')
 	worked = data.get('didWork')
 
 	reviews_ref = db.collection('reviews')
 
-	new_review_doc_ref = reviews_ref.add({
+	review_payload = {
 		"company": company,
 		"position": position,
 		"location": location,
@@ -101,21 +105,25 @@ def add_review_data():
 		"communication": communication,
 		"flexibility": flexibility,
 		"comment": comment,
-		"user": user,
-		"anonymus": anonymus,
+		"anonymous": anonymous,
 		"date": firestore.SERVER_TIMESTAMP,
 		"edited": False,
 		"likes": 0,
 		"applied": applied,
 		"worked": worked
-	})
+	}
+
+	if user:
+		review_payload["user"] = user
+
+	new_review_doc_ref = reviews_ref.add(review_payload)
 	
 	review_id = new_review_doc_ref[1].id
 	
 	if not review_id:
 		return {"error": "Missing review_id"}, 400
 	
-	return {"status": "success"}
+	return {"status": "success", "review_id": review_id}, 201
 
 @app.route("/getreview")
 def get_review_data():

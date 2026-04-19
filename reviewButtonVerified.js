@@ -1,28 +1,32 @@
-function injectVerifiedReviewButtons() {
+function ensureInjectedStarLogoStyles() {
+    if (document.getElementById('despicable-devs-star-logo-style')) return;
 
-    let inlineLogoStyle = document.getElementById('despicable-devs-inline-logo-style');
-    if (!inlineLogoStyle) {
-        inlineLogoStyle = document.createElement('style');
-        inlineLogoStyle.id = 'despicable-devs-inline-logo-style';
-        inlineLogoStyle.textContent = `
-            .extension-review-inline-logo {
-                display: inline-block;
-                width: 1.43em;
-                height: 1.43em;
-                background-color: currentColor;
-                -webkit-mask-image: url("${chrome.runtime.getURL('Logos/Logo.svg')}");
-                -webkit-mask-repeat: no-repeat;
-                -webkit-mask-size: contain;
-                -webkit-mask-position: center;
-                mask-image: url("${chrome.runtime.getURL('Logos/Logo.svg')}");
-                mask-repeat: no-repeat;
-                mask-size: contain;
-                mask-position: center;
-                vertical-align: middle;
-            }
-        `;
-        document.head.appendChild(inlineLogoStyle);
-    }
+    const style = document.createElement('style');
+    style.id = 'despicable-devs-star-logo-style';
+    style.textContent = `
+        .extension-review-stars-logo {
+            display: block;
+            width: 8.58em;
+            height: 1.65em;
+            margin-left: auto;
+            background-color: currentColor;
+            -webkit-mask-image: url("${chrome.runtime.getURL('Logos/LogoName.svg')}");
+            -webkit-mask-repeat: no-repeat;
+            -webkit-mask-size: contain;
+            -webkit-mask-position: right center;
+            mask-image: url("${chrome.runtime.getURL('Logos/LogoName.svg')}");
+            mask-repeat: no-repeat;
+            mask-size: contain;
+            mask-position: right center;
+            vertical-align: middle;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+
+function injectVerifiedReviewButtons() {
+    ensureInjectedStarLogoStyles();
 
     if (!window.location.href.includes("/studenti/moje-izkusnje/")) {
     return;
@@ -57,7 +61,7 @@ function injectVerifiedReviewButtons() {
         if (saved) {
             btn.innerHTML = '<span class="extension-review-stars-logo" aria-hidden="true"></span>';
         } else {
-            btn.innerHTML = '<span style="display:inline-flex;align-items:center;gap:0.35rem;font-size:1.5em;"><span class="extension-review-inline-logo" aria-hidden="true"></span><span>Add review</span></span>';
+            btn.innerText = "Add review";
         }
 
         // FLEX layout
@@ -72,7 +76,7 @@ function injectVerifiedReviewButtons() {
             event.stopPropagation();
             showAddReviewModal(text, (data) => {
                 localStorage.setItem(key, JSON.stringify(data));
-                btn.innerHTML = '<span class="extension-review-stars-logo" aria-hidden="true"></span>';
+                btn.innerHTML = "★★★★★".slice(0, data.overall) + "☆☆☆☆☆".slice(data.overall);
             });
         };
 
@@ -101,7 +105,8 @@ function injectRatingsTable() {
     // ✅ Insert header at correct position
     if (!theadRow.querySelector(".my-ocena-header")) {
         const th = document.createElement("th");
-        th.innerText = "Ocene";
+        ensureInjectedStarLogoStyles();
+        th.innerHTML = '<span class="extension-review-stars-logo" aria-hidden="true"></span>';
         th.className = "bg-white text-center my-ocena-header";
         th.style.fontSize = "12px";
 
@@ -126,6 +131,8 @@ function injectRatingsTable() {
         if (saved) {
             const btn = document.createElement("button");
             btn.className = "btn btn-action my-ocena-btn";
+            btn.style.fontSize = "1.3em";
+            btn.style.lineHeight = "1";
 
             const stars =
                 "★★★★★".slice(0, saved.overall)
@@ -156,6 +163,7 @@ injectRatingsTable();
 setInterval(injectRatingsTable, 2000);
 
 function injectPrijaveReviewButtons() {
+    ensureInjectedStarLogoStyles();
 
     if (!window.location.href.includes("/studenti/moje-prijave-na-dela")) {
         return;
@@ -185,10 +193,21 @@ function injectPrijaveReviewButtons() {
         const btn = document.createElement("button");
         btn.className = "btn btn-sm btn-action my-prijave-review-btn";
         btn.type = "button";
+        if (saved) {
+            btn.style.fontSize = "1.3em";
+            btn.style.lineHeight = "1";
+        }
 
         btn.innerText = saved
             ? "★★★★★".slice(0, saved.overall) + "☆☆☆☆☆".slice(saved.overall)
             : "Review";
+
+        const logo = document.createElement("span");
+        logo.className = "extension-review-stars-logo";
+        logo.setAttribute("aria-hidden", "true");
+        if (!saved) {
+            logo.style.display = "none";
+        }
 
         btn.onclick = (e) => {
             e.preventDefault();
@@ -196,7 +215,9 @@ function injectPrijaveReviewButtons() {
 
             showAddReviewModal(company, (data) => {
                 localStorage.setItem(key, JSON.stringify(data));
-
+                logo.style.display = "";
+                btn.style.fontSize = "1.3em";
+                btn.style.lineHeight = "1";
                 btn.innerText =
                     "★★★★★".slice(0, data.overall) +
                     "☆☆☆☆☆".slice(data.overall);
@@ -210,9 +231,11 @@ function injectPrijaveReviewButtons() {
         // IMPORTANT: force full width so it drops below
         wrapper.style.width = "100%";
         wrapper.style.display = "flex";
-        wrapper.style.justifyContent = "flex-end";
+        wrapper.style.flexDirection = "column";
+        wrapper.style.alignItems = "flex-end";
         wrapper.style.marginTop = "6px";
 
+        wrapper.appendChild(logo);
         wrapper.appendChild(btn);
 
         // insert AFTER ODPRI button (not inside same flex row behavior)
@@ -222,6 +245,38 @@ function injectPrijaveReviewButtons() {
 
 injectPrijaveReviewButtons();
 setInterval(injectPrijaveReviewButtons, 2000);
+
+async function postVerifiedReviewFromForm(reviewData) {
+    const isAnonymous = reviewData.anonymous === true;
+    const user = (reviewData.user || '').trim();
+
+    const payload = {
+        company: reviewData.company,
+        title: reviewData.jobTitle,
+        location: reviewData.location,
+        overall_rating: reviewData.overall,
+        work_environment: reviewData.sub1,
+        location_rating: reviewData.sub2,
+        communication: reviewData.sub3,
+        flexibility: reviewData.sub4,
+        comment: reviewData.comment,
+        isAnonymous: isAnonymous,
+        didApply: reviewData.didApply === true,
+        didWork: reviewData.didWork === true,
+        user: user
+    };
+
+    return new Promise((resolve) => {
+        console.log('Sending review payload to backend (verified modal):', payload);
+        chrome.runtime.sendMessage({ type: 'postReviewData', reviewData: payload }, (response) => {
+            if (chrome.runtime.lastError) {
+                resolve({ success: false, error: chrome.runtime.lastError.message });
+                return;
+            }
+            resolve(response || { success: false, error: 'No response from background' });
+        });
+    });
+}
 
 function showAddReviewModal(company, onSave) {
 
@@ -314,10 +369,10 @@ function showAddReviewModal(company, onSave) {
         // -----------------------------
         function setupStars(selector) {
             const container = modalOverlay.querySelector(selector);
-            if (!container) return () => 0;
+            if (!container) return () => 5;
 
             const stars = container.querySelectorAll("span");
-            let selected = 0;
+            let selected = 5;
 
             const update = () => {
                 stars.forEach(s => {
@@ -384,7 +439,7 @@ function showAddReviewModal(company, onSave) {
         const saveBtn = modalOverlay.querySelector('#save-review');
 
         if (saveBtn) {
-            saveBtn.onclick = () => {
+            saveBtn.onclick = async () => {
 
                 const data = {
                     company: getInputValue('company-input') || company,
@@ -397,8 +452,7 @@ function showAddReviewModal(company, onSave) {
                     sub3: getSub3(),
                     sub4: getSub4(),
 
-                    comment: modalOverlay.querySelector('#review-comment')?.value || "",
-                    anonymous: modalOverlay.querySelector('#anonymous-review')?.checked || false
+                    comment: modalOverlay.querySelector('#review-comment')?.value || ""
                 };
 
                 // REQUIRED FIELDS CHECK
@@ -407,13 +461,12 @@ function showAddReviewModal(company, onSave) {
                     return;
                 }
 
-                // REQUIRED RATINGS CHECK
-                if (!data.overall || !data.sub1 || !data.sub2 || !data.sub3 || !data.sub4) {
-                    alert("Please rate all categories (Overall and all detailed ratings)");
-                    return;
-                }
-
                 onSave(data);
+
+                const postResult = await postVerifiedReviewFromForm(data);
+                if (!postResult?.success) {
+                    console.warn('Failed to post review:', postResult?.error || 'Unknown error');
+                }
 
                 modalOverlay.remove();
                 styleVars.remove();
