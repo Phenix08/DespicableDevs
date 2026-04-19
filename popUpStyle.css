@@ -298,6 +298,11 @@
     color: rgba(0, 0, 0, 0.55);
 }
 
+.comment-edited-marker {
+    color: rgba(0, 0, 0, 0.45);
+    font-style: italic;
+}
+
 .thumbs-up-btn {
     background: none;
     border: 1px solid var(--border-color);

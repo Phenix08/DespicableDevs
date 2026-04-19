@@ -72,33 +72,13 @@ const reviewSummaryCache = new Map();
 const reviewSummaryInFlight = new Map();
 const FALLBACK_CURRENT_USER_EMAIL = 'sara.strakl4@gmail.com';
 
-function normalizeCompanyForLookup(name) {
-    if (!name) return '';
-
-    let normalized = String(name).toUpperCase();
-    const suffixes = [
-        /\bD\s*\.?\s*O\s*\.?\s*O\s*\.?\b/g,
-        /\bD\s*\.?\s*D\s*\.?\b/g,
-        /\bS\s*\.?\s*P\s*\.?\b/g,
-        /\bD\s*\.?\s*N\s*\.?\s*O\s*\.?\b/g
-    ];
-
-    suffixes.forEach((suffix) => {
-        normalized = normalized.replace(suffix, '');
-    });
-
-    normalized = normalized.replace(/[^\w\s]/g, ' ');
-    normalized = normalized.replace(/\s+/g, ' ').trim();
-    return normalized;
-}
-
 function toUpperTrim(value) {
     return (value || '').trim().toUpperCase();
 }
 
 function buildReviewLookupParams(jobData) {
     return {
-        company: normalizeCompanyForLookup(jobData.company),
+        company: jobData.company,
         position: toUpperTrim(jobData.title),
         location: toUpperTrim(jobData.location)
     };
@@ -304,7 +284,7 @@ async function fetchListingReviewSummary(jobData, { forceRefresh = false } = {})
                 return null;
             }
 
-            /*console.log('Reviews received for listing lookup:', params, result?.data?.reviews || []);*/
+            console.log('Reviews received for listing lookup:', params, result?.data?.reviews || []);
 
             const overall = Number(result?.data?.averages?.overall);
             const parsed = Number.isFinite(overall) ? overall : null;
@@ -487,6 +467,13 @@ function renderPopupComments(modalOverlay, summary) {
         const date = document.createElement('span');
         date.className = 'comment-date';
         date.textContent = formatReviewDate(review?.date);
+
+        if (toBooleanFlag(review?.edited)) {
+            const editedMarker = document.createElement('span');
+            editedMarker.className = 'comment-edited-marker';
+            editedMarker.textContent = ' (edited)';
+            date.appendChild(editedMarker);
+        }
 
         const likesCount = Number(review?.likes);
         const thumbsUp = document.createElement('button');
@@ -955,8 +942,32 @@ async function postInlineReviewFromForm(reviewData) {
     };
 
     return new Promise((resolve) => {
-        /*console.log('Sending review payload to backend (inline form):', payload);*/
+        console.log('Sending review payload to backend (inline form):', payload);
         chrome.runtime.sendMessage({ type: 'postReviewData', reviewData: payload }, (response) => {
+            if (chrome.runtime.lastError) {
+                resolve({ success: false, error: chrome.runtime.lastError.message });
+                return;
+            }
+            resolve(response || { success: false, error: 'No response from background' });
+        });
+    });
+}
+
+async function editInlineReviewFromForm(reviewId, reviewData) {
+    const payload = {
+        company: reviewData.company,
+        title: reviewData.jobTitle,
+        location: reviewData.location,
+        overall_rating: reviewData.overall,
+        work_environment: reviewData.sub1,
+        location_rating: reviewData.sub2,
+        communication: reviewData.sub3,
+        flexibility: reviewData.sub4,
+        comment: reviewData.comment
+    };
+
+    return new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: 'editReviewData', reviewId, reviewData: payload }, (response) => {
             if (chrome.runtime.lastError) {
                 resolve({ success: false, error: chrome.runtime.lastError.message });
                 return;
@@ -1045,6 +1056,9 @@ function wireInlineAddReview(modalOverlay, jobData, existingReview = null) {
     saveBtn.addEventListener('click', async (event) => {
         event.preventDefault();
 
+        const isEditMode = (saveBtn.textContent || '').trim().toLowerCase() === 'save changes';
+        const existingReviewId = String(existingReview?.review_id || '').trim();
+
         const reviewData = {
             company: companyInput?.value.trim() || '',
             jobTitle: titleInput?.value.trim() || '',
@@ -1073,16 +1087,57 @@ function wireInlineAddReview(modalOverlay, jobData, existingReview = null) {
         localStorage.setItem(storageKey, JSON.stringify(reviewData));
         console.log('Saved inline review:', reviewData);
 
-        const postResult = await postInlineReviewFromForm(reviewData);
-        if (!postResult?.success) {
-            console.warn('Failed to post inline review:', postResult?.error || 'Unknown error');
+        let actionResult = null;
+
+        if (isEditMode) {
+            if (!existingReviewId) {
+                alert('Could not find the review id for editing. Please refresh and try again.');
+                return;
+            }
+            actionResult = await editInlineReviewFromForm(existingReviewId, reviewData);
         } else {
-            invalidateListingReviewCache(reviewData);
-            refreshStudentskiListingStars({ forceRefresh: true });
-            updateReviewDisclosureLabel(modalOverlay, true);
+            actionResult = await postInlineReviewFromForm(reviewData);
         }
 
-        alert('Review saved successfully!');
+        if (!actionResult?.success) {
+            console.warn('Failed to submit inline review:', actionResult?.error || 'Unknown error');
+            alert('Failed to save review. Please try again.');
+            return;
+        }
+
+        if (!isEditMode) {
+            try {
+                const responseBody = actionResult?.body ? JSON.parse(actionResult.body) : null;
+                const createdReviewId = String(responseBody?.review_id || '').trim();
+                if (createdReviewId) {
+                    localStorage.setItem(storageKey, JSON.stringify({
+                        ...reviewData,
+                        review_id: createdReviewId
+                    }));
+                }
+            } catch (error) {
+                // Keep saved local review without review_id if response parsing fails.
+            }
+        }
+
+        invalidateListingReviewCache(reviewData);
+        refreshStudentskiListingStars({ forceRefresh: true });
+        updateReviewDisclosureLabel(modalOverlay, true);
+
+        fetchListingReviewSummary({ ...jobData, forceRefresh: true }, { forceRefresh: true })
+            .then((summary) => {
+                renderPopupAverageData(modalOverlay, summary);
+                renderPopupComments(modalOverlay, summary);
+            })
+            .catch((error) => {
+                console.warn('Failed to refresh popup summary after submit', error);
+            });
+
+        if (isEditMode) {
+            alert('Review updated successfully!');
+        } else {
+            alert('Review saved successfully!');
+        }
     });
 }
 

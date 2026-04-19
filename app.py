@@ -16,6 +16,9 @@ firebase_admin.initialize_app(cred)
 
 db = firestore.Client()
 
+def normalize_field_for_match(value):
+	return normalize((value or '').strip())
+
 @app.route("/scraper", methods=["POST"])
 def add_company_data():
 	data = request.get_json()
@@ -23,11 +26,9 @@ def add_company_data():
 	name = data.get('company')
 	name = normalize(name)
 
-	position = data.get('title')
-	position = position.upper()
+	position = (data.get('title') or '').strip().upper()
 
-	location = data.get('location')
-	location = location.upper()
+	location = (data.get('location') or '').strip().upper()
 
 	companies_ref = db.collection('companies')
 	query = companies_ref.where('name', '==', name).limit(1).stream()
@@ -130,6 +131,8 @@ def get_review_data():
 	company = normalize((request.args.get('company') or '').strip())
 	position = (request.args.get('position') or '').strip().upper()
 	location = (request.args.get('location') or '').strip().upper()
+	position_match = normalize_field_for_match(position)
+	location_match = normalize_field_for_match(location)
 
 	if not company or not position or not location:
 		return jsonify({
@@ -160,14 +163,30 @@ def get_review_data():
 	company_id = existing_company_doc.id
 
 	reviews_ref = db.collection('reviews')
-	query = (
+	strict_query = (
 		reviews_ref
 		.where('company', '==', company_id)
 		.where('position', '==', position)
 		.where('location', '==', location)
 		.stream()
 	)
-	reviews = [doc.to_dict() for doc in query]
+
+	review_docs = list(strict_query)
+
+	if len(review_docs) == 0:
+		# Fallback for legacy formatting mismatches (punctuation/spacing differences).
+		company_only_query = reviews_ref.where('company', '==', company_id).stream()
+		review_docs = [
+			doc for doc in company_only_query
+			if normalize_field_for_match(doc.to_dict().get('position')) == position_match
+			and normalize_field_for_match(doc.to_dict().get('location')) == location_match
+		]
+
+	reviews = []
+	for doc in review_docs:
+		review_data = doc.to_dict()
+		review_data['review_id'] = doc.id
+		reviews.append(review_data)
 
 	overall_averages = []
 	work_environment_averages = []
@@ -176,6 +195,9 @@ def get_review_data():
 	communication_averages = []
 
 	for review in reviews:
+		review_user_id = review.get('user')
+		review['user_id'] = review_user_id
+
 		overall_value = review.get('rating', review.get('overall_rating'))
 		work_environment_value = review.get('work_environment')
 		location_rating_value = review.get('location_rating')
@@ -196,12 +218,18 @@ def get_review_data():
 		if review.get('anonymous'):
 			review['user'] = 'Anonymous'
 		else:
-			user_id = review.get('user')
+			user_id = review_user_id
 			if user_id:
 				user_doc = db.collection("users").document(user_id).get()
-				review['user'] = user_doc.get('display_name') if user_doc.exists else 'Unknown user'
+				if user_doc.exists:
+					review['user'] = user_doc.get('display_name') or 'Unknown user'
+					review['user_email'] = user_doc.get('email') or ''
+				else:
+					review['user'] = 'Unknown user'
+					review['user_email'] = ''
 			else:
 				review['user'] = 'Unknown user'
+				review['user_email'] = ''
 
 	def safe_average(values):
 		return average_rating(values) if len(values) > 0 else 0
@@ -252,11 +280,10 @@ def get_company_data():
 
 @app.route("/editreview/<review_id>", methods=["PUT"])
 def edit_review_data(review_id):
-	data = request.json
+	data = request.get_json() or {}
 
-	review_ref = db.collection("reviews").document(review_id)
-
-	review_ref.update({
+	review_payload = {
+		"rating": data.get("overall_rating"),
 		"overall_rating": data.get("overall_rating"),
 		"work_environment": data.get("work_environment"),
 		"location_rating": data.get("location_rating"),
@@ -265,7 +292,25 @@ def edit_review_data(review_id):
 		"comment": data.get("comment"),
 		"edited": True,
 		"date": firestore.SERVER_TIMESTAMP
-	})
+	}
+
+	if data.get("title"):
+		review_payload["position"] = str(data.get("title")).strip().upper()
+	if data.get("location"):
+		review_payload["location"] = str(data.get("location")).strip().upper()
+
+	company_name = data.get("company")
+	if company_name:
+		company_normalized = normalize(company_name)
+		companies_ref = db.collection('companies')
+		company_query = companies_ref.where('name', '==', company_normalized).limit(1).stream()
+		existing_company_doc = next(company_query, None)
+		if existing_company_doc:
+			review_payload["company"] = existing_company_doc.id
+
+	review_ref = db.collection("reviews").document(review_id)
+
+	review_ref.update(review_payload)
 
 	return {"status": "updated"}
 
