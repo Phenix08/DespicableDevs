@@ -135,6 +135,51 @@ const reviewSummaryCache = new Map();
 const reviewSummaryInFlight = new Map();
 const FALLBACK_CURRENT_USER_EMAIL = 'timotejtbj@gmail.com';
 
+function sendRuntimeMessageSafe(message) {
+    return new Promise((resolve) => {
+        const runtime = (typeof chrome !== 'undefined' && chrome.runtime) ? chrome.runtime : null;
+
+        if (!runtime?.id || typeof runtime.sendMessage !== 'function') {
+            resolve({
+                success: false,
+                error: 'Extension context unavailable. Refresh the page and try again.'
+            });
+            return;
+        }
+
+        try {
+            runtime.sendMessage(message, (response) => {
+                if (runtime.lastError) {
+                    const runtimeError = runtime.lastError.message || 'Runtime messaging failed';
+                    if (/extension context invalidated/i.test(runtimeError)) {
+                        resolve({
+                            success: false,
+                            error: 'Extension was reloaded. Refresh the page and try again.'
+                        });
+                        return;
+                    }
+
+                    resolve({ success: false, error: runtimeError });
+                    return;
+                }
+
+                resolve(response || { success: false, error: 'No response from background' });
+            });
+        } catch (error) {
+            const messageText = error?.message || String(error);
+            if (/extension context invalidated/i.test(messageText)) {
+                resolve({
+                    success: false,
+                    error: 'Extension was reloaded. Refresh the page and try again.'
+                });
+                return;
+            }
+
+            resolve({ success: false, error: messageText });
+        }
+    });
+}
+
 function toUpperTrim(value) {
     return (value || '').trim().toUpperCase();
 }
@@ -369,15 +414,7 @@ async function fetchListingReviewSummary(jobData, { forceRefresh = false } = {})
         return reviewSummaryInFlight.get(cacheKey);
     }
 
-    const pendingRequest = new Promise((resolve) => {
-        chrome.runtime.sendMessage({ type: 'getReviewData', params }, (response) => {
-            if (chrome.runtime.lastError) {
-                resolve({ success: false, error: chrome.runtime.lastError.message });
-                return;
-            }
-            resolve(response || { success: false, error: 'No response from background' });
-        });
-    })
+    const pendingRequest = sendRuntimeMessageSafe({ type: 'getReviewData', params })
         .then((result) => {
             if (!result?.success) {
                 console.warn('Review lookup failed:', {
@@ -892,15 +929,7 @@ async function postInlineReviewFromForm(reviewData) {
         user: user
     };
 
-    return new Promise((resolve) => {
-        chrome.runtime.sendMessage({ type: 'postReviewData', reviewData: payload }, (response) => {
-            if (chrome.runtime.lastError) {
-                resolve({ success: false, error: chrome.runtime.lastError.message });
-                return;
-            }
-            resolve(response || { success: false, error: 'No response from background' });
-        });
-    });
+    return sendRuntimeMessageSafe({ type: 'postReviewData', reviewData: payload });
 }
 
 async function editInlineReviewFromForm(reviewId, reviewData) {
@@ -916,15 +945,7 @@ async function editInlineReviewFromForm(reviewId, reviewData) {
         comment: reviewData.comment
     };
 
-    return new Promise((resolve) => {
-        chrome.runtime.sendMessage({ type: 'editReviewData', reviewId, reviewData: payload }, (response) => {
-            if (chrome.runtime.lastError) {
-                resolve({ success: false, error: chrome.runtime.lastError.message });
-                return;
-            }
-            resolve(response || { success: false, error: 'No response from background' });
-        });
-    });
+    return sendRuntimeMessageSafe({ type: 'editReviewData', reviewId, reviewData: payload });
 }
 
 function wireInlineAddReview(modalOverlay, jobData, existingReview = null) {
