@@ -247,11 +247,15 @@ def get_review_data():
 
 @app.route("/getcompany")
 def get_company_data():
-	company = request.args.get('company')
+	company = normalize((request.args.get('company') or '').strip())
+	if not company:
+		return jsonify({"error": "Missing company"}), 400
 
 	companies_ref = db.collection('companies')
 	query = companies_ref.where('name', '==', company).limit(1).stream()
 	existing_company_doc = next(query, None)
+	if not existing_company_doc:
+		return jsonify({"error": "Company not found"}), 404
 	company_id = existing_company_doc.id
 	
 	company_details = existing_company_doc.to_dict()

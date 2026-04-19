@@ -24,6 +24,16 @@ function ensureInjectedStarLogoStyles() {
     document.head.appendChild(style);
 }
 
+    function updateFormTriggerButtonState(button, contentNode) {
+        if (!button || !contentNode) return;
+
+        const isAddReview = (contentNode.textContent || '').trim().toLowerCase() === 'add review';
+        button.disabled = !isAddReview;
+        button.style.pointerEvents = isAddReview ? 'auto' : 'none';
+        button.style.cursor = isAddReview ? 'pointer' : 'default';
+        button.style.opacity = isAddReview ? '1' : '0.7';
+    }
+
 
 function injectVerifiedReviewButtons() {
     ensureInjectedStarLogoStyles();
@@ -32,22 +42,37 @@ function injectVerifiedReviewButtons() {
     return;
     }
 
-
-    const jobRows = document.querySelectorAll(".row.border-bottom");
+    const jobRows = [
+    ...document.querySelectorAll('.row.border-bottom'),
+    ...Array.from(document.querySelectorAll('.row.pb-4.mb-4')).slice(-1)
+    ];
 
     jobRows.forEach(row => {
-        const titleDiv = row.querySelector(".col-12.h3");
+        const companyDiv = row.querySelector(".col-12.h3");
+        const titleDiv = Array.from(row.querySelectorAll("div.col-12"))
+        .find(div => !div.classList.contains("h3") && !div.classList.contains("mb-0"));
+
+        const jobTitle = titleDiv ? titleDiv.textContent.trim() : "";
+        if (!companyDiv) return;
         if (!titleDiv) return;
 
         // Prevent duplicates
+        if (companyDiv.querySelector(".my-review-btn")) return;
         if (titleDiv.querySelector(".my-review-btn")) return;
 
         // Wrap text in span (important!)
-        const text = titleDiv.firstChild.textContent.trim();
-        titleDiv.innerHTML = ""; // clear
+        const company = companyDiv.firstChild.textContent.trim();
+        const location = "";
+
+        const jobData = { title: jobTitle.toUpperCase(), company: company.toUpperCase(), location: location.toUpperCase() };
+
+        companyDiv.innerHTML = ""; // clear
+
+        console.log("Company:", company);
+        console.log("Job Title:", jobTitle);
 
         const textSpan = document.createElement("span");
-        textSpan.innerText = text;
+        textSpan.innerText = company;
 
         // Create button
         const btn = document.createElement("button");
@@ -63,7 +88,7 @@ function injectVerifiedReviewButtons() {
 
         const content = document.createElement("div");
 
-        const key = "review_" + text;
+        const key = "review_" + company;
         const savedRaw = localStorage.getItem(key);
         const saved = savedRaw ? JSON.parse(savedRaw) : null;
 
@@ -75,13 +100,15 @@ function injectVerifiedReviewButtons() {
             content.innerText = "Add review";
         }
 
+        updateFormTriggerButtonState(btn, content);
+
         btn.appendChild(logo);
         btn.appendChild(content);
 
         btn.onclick = () => {
             event.preventDefault();
             event.stopPropagation();
-            showAddReviewModal(text, (data) => {
+            showAddReviewModal(jobData, (data) => {
                 localStorage.setItem(key, JSON.stringify(data));
                 content.innerHTML = "★★★★★".slice(0, data.overall) + "☆☆☆☆☆".slice(data.overall);
                 content.style.fontSize = "1.8em";
@@ -89,13 +116,13 @@ function injectVerifiedReviewButtons() {
             }, { didWork: true });
         };
 
-        // FLEX layout for titleDiv
-        titleDiv.style.display = "flex";
-        titleDiv.style.alignItems = "center";
+        // FLEX layout for companyDiv
+        companyDiv.style.display = "flex";
+        companyDiv.style.alignItems = "center";
         btn.style.marginLeft = "auto";
 
-        titleDiv.appendChild(textSpan);
-        titleDiv.appendChild(btn);
+        companyDiv.appendChild(textSpan);
+        companyDiv.appendChild(btn);
     });
 }
 
@@ -104,6 +131,8 @@ setInterval(injectVerifiedReviewButtons, 2000);
 
 function injectRatingsTable() {
 
+
+                updateFormTriggerButtonState(btn, content);
     if (!window.location.href.includes("/studenti/izdane-napotnice/")) {
         return;
     }
@@ -115,6 +144,7 @@ function injectRatingsTable() {
     const theadRow = table.querySelector("thead tr");
     const tbodyRows = table.querySelectorAll("tbody tr");
 
+                        updateFormTriggerButtonState(btn, content);
     // ✅ Insert header at correct position
     if (!theadRow.querySelector(".my-ocena-header")) {
         const th = document.createElement("th");
@@ -132,8 +162,17 @@ function injectRatingsTable() {
 
         const companyCell = row.querySelector(".title");
         if (!companyCell) return;
+        const titleCell = row.querySelector(".text-left");
+        if (!titleCell) return;
 
+        
         const company = companyCell.innerText.trim();
+        const title = titleCell.innerText.trim();
+        const location = "";
+
+        console.log("Extracted job data for ratings table:", { title, company, location });
+
+        const jobData = { title: title.toUpperCase(), company: company.toUpperCase(), location: location.toUpperCase() };
         const key = "review_" + company;
         const savedRaw = localStorage.getItem(key);
         const saved = savedRaw ? JSON.parse(savedRaw) : null;
@@ -155,7 +194,7 @@ function injectRatingsTable() {
             btn.onclick = () => {
                 event.preventDefault();
                 event.stopPropagation();
-                showAddReviewModal(company, (data) => {
+                showAddReviewModal(jobData, (data) => {
                     localStorage.setItem(key, JSON.stringify(data));
 
                     btn.innerText =
@@ -193,12 +232,15 @@ function injectPrijaveReviewButtons() {
 
         if (row.querySelector(".my-prijave-review-btn")) return;
 
-        const title = row.querySelector(".h3, .h5");
-        if (!title) return;
+        const title = row.querySelector('span.d-block.h5.mb-0')?.innerText.trim() || "";
+        const company = row.querySelector('span.d-block.h6.font-weight-light.mb-0')?.innerText.replace(/^[^A-Za-z0-9]*|\\s+$/g, '').trim() || "";
+        const location = row.querySelectorAll('span.d-block.h6.font-weight-light.mb-0')[1]?.innerText.replace(/^[^A-Za-z0-9]*|\\s+$/g, '').trim() || "";
 
-        const company = title.innerText.trim();
+        console.log("Extracted job data for ratings table:", { title, company, location });
+
+        const jobData = { title: title.toUpperCase(), company: company.toUpperCase(), location: location.toUpperCase() };
+        
         const key = "review_" + company;
-
         const savedRaw = localStorage.getItem(key);
         const saved = savedRaw ? JSON.parse(savedRaw) : null;
 
@@ -231,11 +273,12 @@ function injectPrijaveReviewButtons() {
             e.preventDefault();
             e.stopPropagation();
 
-            showAddReviewModal(company, (data) => {
+            showAddReviewModal(jobData, (data) => {
                 localStorage.setItem(key, JSON.stringify(data));
                 content.innerHTML = "★★★★★".slice(0, data.overall) + "☆☆☆☆☆".slice(data.overall);
                 content.style.fontSize = "1.8em";
                 content.style.lineHeight = "1";
+                updateFormTriggerButtonState(btn, content);
             }, { didApply: true });
         };
 
@@ -291,13 +334,42 @@ async function postVerifiedReviewFromForm(reviewData) {
     });
 }
 
-function showAddReviewModal(company, onSave, context = {}) {
+async function fetchVerifiedCompanyData(companyName) {
+    return new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: 'getCompanyData', params: { company: companyName } }, (response) => {
+            if (chrome.runtime.lastError) {
+                resolve({ success: false, error: chrome.runtime.lastError.message });
+                return;
+            }
+            resolve(response || { success: false, error: 'No response from background' });
+        });
+    });
+}
+
+function extractVerifiedCompanyLocations(companyData) {
+    const locationEntries = Array.isArray(companyData?.locations) ? companyData.locations : [];
+    const normalized = locationEntries
+        .map((entry) => {
+            if (typeof entry === 'string') return entry.trim();
+            if (entry && typeof entry.location === 'string') return entry.location.trim();
+            return '';
+        })
+        .filter(Boolean);
+
+    return Array.from(new Set(normalized));
+}
+
+function showAddReviewModal(jobData, onSave, context = {}) {
 
     // Remove existing modal if present
     const existingModal = document.getElementById('review-modal-overlay');
     if (existingModal) existingModal.remove();
 
+    console.log("Opening review modal for company:", jobData.company, "with context:", context);
+
     const websiteStyles = extractWebsiteStyles();
+    const savedRaw = localStorage.getItem("review_" + jobData.company);
+    const savedReview = savedRaw ? JSON.parse(savedRaw) : null;
 
     const modalOverlay = document.createElement('div');
     modalOverlay.id = 'review-modal-overlay';
@@ -334,63 +406,63 @@ function showAddReviewModal(company, onSave, context = {}) {
 
         // Autocomplete data
         const autocompleteData = {
-            'job-title-input': [
-                'Software Developer',
-                'Frontend Engineer',
-                'Backend Engineer',
-                'Full Stack Developer',
-                'Data Analyst',
-                'Project Manager',
-                'Designer',
-                'QA Engineer',
-                'DevOps Engineer',
-                'System Administrator'
-            ],
-            'company-input': [
-                'Google',
-                'Microsoft',
-                'Apple',
-                'Amazon',
-                'Facebook',
-                'Tesla',
-                'Netflix',
-                'Uber',
-                'Airbnb',
-                'LinkedIn'
-            ],
-            'location-input': [
-                'Ljubljana',
-                'Maribor',
-                'Koper',
-                'Celje',
-                'Kranj',
-                'Remote',
-                'New York',
-                'San Francisco',
-                'London',
-                'Berlin'
-            ]
+            'job-title-input': [],
+            'company-input': [],
+            'location-input': []
         };
+
+        const jobInput = modalOverlay.querySelector('#job-title-input');
+        if (jobInput && jobData.title) {
+            jobInput.value = jobData.title;
+        }
+
+        const companyInput = modalOverlay.querySelector('#company-input');
+        if (companyInput && jobData.company) {
+            companyInput.value = jobData.company;
+        }
+
+        const locationInput = modalOverlay.querySelector('#location-input');
+        if (locationInput && jobData.location) {
+            locationInput.value = jobData.location;
+        }
+
+        console.log("Extracted job data for modal:", jobData);
+        console.log(jobInput, companyInput, locationInput);
 
         // Initialize autocomplete for each field
         Object.keys(autocompleteData).forEach(fieldId => {
             initializeAutocomplete(modalOverlay, fieldId, autocompleteData[fieldId]);
         });
 
+        // Populate location dropdown options for the selected company using /getcompany.
+        fetchVerifiedCompanyData(jobData.company)
+            .then((result) => {
+                if (!result?.success) {
+                    console.warn('Failed to fetch company data for location options:', result?.error || 'Unknown error');
+                    return;
+                }
+
+                const locations = extractVerifiedCompanyLocations(result?.data);
+                autocompleteData['location-input'].splice(0, autocompleteData['location-input'].length, ...locations);
+            })
+            .catch((error) => {
+                console.warn('Unexpected error while loading company locations:', error);
+            });
+
         // -----------------------------
         // ⭐ STAR LOGIC (FIXED)
         // -----------------------------
-        function setupStars(selector) {
+        function setupStars(selector, initial = 0) {
             const container = modalOverlay.querySelector(selector);
-            if (!container) return () => 5;
+            if (!container) return () => initial;
 
             const stars = container.querySelectorAll("span");
-            let selected = 5;
+            let selected = initial;
 
             const update = () => {
                 stars.forEach(s => {
                     const val = parseInt(s.dataset.value);
-                    s.classList.toggle("active", val <= selected);
+                    s.classList.toggle("active", selected > 0 && val <= selected);
                 });
             };
 
@@ -405,11 +477,12 @@ function showAddReviewModal(company, onSave, context = {}) {
             return () => selected;
         }
 
-        const getOverall = setupStars('[data-target="overall"]');
-        const getSub1 = setupStars('[data-target="sub1"]');
-        const getSub2 = setupStars('[data-target="sub2"]');
-        const getSub3 = setupStars('[data-target="sub3"]');
-        const getSub4 = setupStars('[data-target="sub4"]');
+        // If there is a saved review, prefill, otherwise start with 0 (gray)
+        const getOverall = setupStars('[data-target="overall"]', savedReview?.overall ?? 0);
+        const getSub1 = setupStars('[data-target="sub1"]', savedReview?.sub1 ?? 0);
+        const getSub2 = setupStars('[data-target="sub2"]', savedReview?.sub2 ?? 0);
+        const getSub3 = setupStars('[data-target="sub3"]', savedReview?.sub3 ?? 0);
+        const getSub4 = setupStars('[data-target="sub4"]', savedReview?.sub4 ?? 0);
 
         // -----------------------------
         // ❌ CLOSE BUTTON (FIXED)

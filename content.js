@@ -20,24 +20,70 @@ function extractJobData(jobContainer) {
             jobData.company = companyElement.textContent.trim();
         }
 
-        const locationRow = Array.from(card.querySelectorAll('div')).find(el =>
-            el.classList.contains('flex') &&
-            el.classList.contains('items-center') &&
-            el.classList.contains('gap-4') &&
-            el.classList.contains('text-[14px]')
+        const hasLetters = (text) => /[A-Za-zÀ-ž]/.test(text || '');
+        const isNotNumericOnly = (text) => !/^\d+$/.test((text || '').trim());
+        const pickCandidate = (values) => values
+            .map((text) => (text || '').trim())
+            .find((text) => text && hasLetters(text) && isNotNumericOnly(text)) || '';
+
+        const locationFromSvgNeighbor = pickCandidate(
+            Array.from(card.querySelectorAll('div.flex.gap-2 svg + span')).map((span) => span.textContent)
+        ) || pickCandidate(
+            Array.from(card.querySelectorAll('svg + span')).map((span) => span.textContent)
         );
-        if (locationRow) {
-            const spans = Array.from(locationRow.querySelectorAll('span'))
-                .filter(span => !span.classList.contains('rounded-full'));
-            if (spans.length) {
-                const lastSpan = spans[spans.length - 1];
-                jobData.location = lastSpan.textContent.trim();
-            } else {
+
+        if (locationFromSvgNeighbor) {
+            jobData.location = locationFromSvgNeighbor;
+        }
+
+        if (!jobData.location) {
+            const locationFromGap2Span = pickCandidate(
+                Array.from(card.querySelectorAll('div.flex.gap-2 span')).map((span) => span.textContent)
+            );
+            if (locationFromGap2Span) {
+                jobData.location = locationFromGap2Span;
+            }
+        }
+
+        if (!jobData.location) {
+            const locationRow = Array.from(card.querySelectorAll('div')).find(el =>
+                el.classList.contains('flex') &&
+                el.classList.contains('items-center') &&
+                el.classList.contains('gap-4') &&
+                el.classList.contains('text-[14px]')
+            );
+            if (locationRow) {
                 const text = locationRow.textContent.trim();
                 if (text) {
                     jobData.location = text;
                 }
             }
+        }
+
+        if (!jobData.location) {
+            const debugSvgNeighbor = Array.from(card.querySelectorAll('div.flex.gap-2 svg + span'))
+                .map((span) => span.textContent.trim())
+                .filter(Boolean);
+            const debugGap2Spans = Array.from(card.querySelectorAll('div.flex.gap-2 span'))
+                .map((span) => span.textContent.trim())
+                .filter(Boolean);
+            const debugGap4Rows = Array.from(card.querySelectorAll('div.flex.items-center.gap-4'))
+                .map((row) => row.textContent.trim())
+                .filter(Boolean);
+
+            console.warn('mjob location extraction failed (empty location)', {
+                extractedJobData: jobData,
+                selectors: {
+                    'div.flex.gap-2': card.querySelectorAll('div.flex.gap-2').length,
+                    'div.flex.gap-2 svg + span': card.querySelectorAll('div.flex.gap-2 svg + span').length,
+                    'div.flex.items-center.gap-4': card.querySelectorAll('div.flex.items-center.gap-4').length
+                },
+                svgNeighborTexts: debugSvgNeighbor,
+                gap2SpanTexts: debugGap2Spans,
+                gap4RowTexts: debugGap4Rows,
+                cardClass: card.className,
+                cardSnippet: (card.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 220)
+            });
         }
 
         return jobData;
@@ -66,13 +112,112 @@ function isMjobSite() {
     return window.location.host.includes('mjob');
 }
 
+function extractMjobLocationFromMetadataRow(row) {
+    if (!row) return '';
+
+    const fromSvgNeighbor = Array.from(row.querySelectorAll('svg + span'))
+        .map((span) => (span.textContent || '').trim())
+        .find(Boolean);
+    if (fromSvgNeighbor) return fromSvgNeighbor;
+
+    const fromGap2 = Array.from(row.querySelectorAll('div.flex.gap-2 span'))
+        .map((span) => (span.textContent || '').trim())
+        .filter(Boolean)
+        .at(-1);
+    if (fromGap2) return fromGap2;
+
+    const rowText = (row.textContent || '').replace(/\s+/g, ' ').trim();
+    return rowText || '';
+}
+
 const reviewAverageCache = new Map();
 const reviewSummaryCache = new Map();
 const reviewSummaryInFlight = new Map();
-const FALLBACK_CURRENT_USER_EMAIL = 'sara.strakl4@gmail.com';
+const FALLBACK_CURRENT_USER_EMAIL = 'timotejtbj@gmail.com';
+
+function sendRuntimeMessageSafe(message) {
+    return new Promise((resolve) => {
+        const runtime = (typeof chrome !== 'undefined' && chrome.runtime) ? chrome.runtime : null;
+
+        if (!runtime?.id || typeof runtime.sendMessage !== 'function') {
+            resolve({
+                success: false,
+                error: 'Extension context unavailable. Refresh the page and try again.'
+            });
+            return;
+        }
+
+        try {
+            runtime.sendMessage(message, (response) => {
+                if (runtime.lastError) {
+                    const runtimeError = runtime.lastError.message || 'Runtime messaging failed';
+                    if (/extension context invalidated/i.test(runtimeError)) {
+                        resolve({
+                            success: false,
+                            error: 'Extension was reloaded. Refresh the page and try again.'
+                        });
+                        return;
+                    }
+
+                    resolve({ success: false, error: runtimeError });
+                    return;
+                }
+
+                resolve(response || { success: false, error: 'No response from background' });
+            });
+        } catch (error) {
+            const messageText = error?.message || String(error);
+            if (/extension context invalidated/i.test(messageText)) {
+                resolve({
+                    success: false,
+                    error: 'Extension was reloaded. Refresh the page and try again.'
+                });
+                return;
+            }
+
+            resolve({ success: false, error: messageText });
+        }
+    });
+}
 
 function toUpperTrim(value) {
     return (value || '').trim().toUpperCase();
+}
+
+function recoverMjobLocationFromDom(jobData) {
+    if (!isMjobSite()) return '';
+
+    const targetTitle = toUpperTrim(jobData?.title);
+    const targetCompany = toUpperTrim(jobData?.company);
+    if (!targetTitle || !targetCompany) return '';
+
+    const cards = Array.from(document.querySelectorAll('a.job-card, .job-card'));
+
+    for (const card of cards) {
+        const titleElement = Array.from(card.querySelectorAll('h5')).find(el =>
+            el.classList.contains('underline') && el.classList.contains('line-clamp-1')
+        ) || card.querySelector('h5');
+        const companyElement = Array.from(card.querySelectorAll('span')).find(el =>
+            el.classList.contains('text-body-4-extra-light') && el.classList.contains('uppercase')
+        ) || Array.from(card.querySelectorAll('span')).find(el => el.classList.contains('uppercase')) || card.querySelector('span');
+
+        const cardTitle = toUpperTrim(titleElement?.textContent || '');
+        const cardCompany = toUpperTrim(companyElement?.textContent || '');
+        if (cardTitle !== targetTitle || cardCompany !== targetCompany) continue;
+
+        const svgNeighborLocation = Array.from(card.querySelectorAll('div.flex.gap-2 svg + span'))
+            .map((span) => (span.textContent || '').trim())
+            .find(Boolean);
+        if (svgNeighborLocation) return svgNeighborLocation;
+
+        const gap2Location = Array.from(card.querySelectorAll('div.flex.gap-2 span'))
+            .map((span) => (span.textContent || '').trim())
+            .filter(Boolean)
+            .at(-1);
+        if (gap2Location) return gap2Location;
+    }
+
+    return '';
 }
 
 function buildReviewLookupParams(jobData) {
@@ -243,7 +388,15 @@ async function fetchListingAverageRating(jobData) {
 }
 
 async function fetchListingReviewSummary(jobData, { forceRefresh = false } = {}) {
-    const { params, cacheKey } = getListingCacheKey(jobData);
+    let { params, cacheKey } = getListingCacheKey(jobData);
+
+    if (isMjobSite() && !params.location) {
+        const recoveredLocation = recoverMjobLocationFromDom(jobData);
+        if (recoveredLocation) {
+            jobData.location = recoveredLocation;
+            ({ params, cacheKey } = getListingCacheKey(jobData));
+        }
+    }
 
     if (!params.company || !params.position || !params.location) {
         console.warn('Skipping review lookup due to missing params:', {
@@ -261,15 +414,7 @@ async function fetchListingReviewSummary(jobData, { forceRefresh = false } = {})
         return reviewSummaryInFlight.get(cacheKey);
     }
 
-    const pendingRequest = new Promise((resolve) => {
-        chrome.runtime.sendMessage({ type: 'getReviewData', params }, (response) => {
-            if (chrome.runtime.lastError) {
-                resolve({ success: false, error: chrome.runtime.lastError.message });
-                return;
-            }
-            resolve(response || { success: false, error: 'No response from background' });
-        });
-    })
+    const pendingRequest = sendRuntimeMessageSafe({ type: 'getReviewData', params })
         .then((result) => {
             if (!result?.success) {
                 console.warn('Review lookup failed:', {
@@ -592,6 +737,12 @@ function injectButton() {
                 event.preventDefault();
                 event.stopPropagation();
                 const jobData = extractJobData(row.closest('article.job-item') || row);
+                if (!jobData.location) {
+                    const rowLocation = extractMjobLocationFromMetadataRow(row);
+                    if (rowLocation) {
+                        jobData.location = rowLocation;
+                    }
+                }
                 showReviewModal(jobData);
             };
 
@@ -778,15 +929,7 @@ async function postInlineReviewFromForm(reviewData) {
         user: user
     };
 
-    return new Promise((resolve) => {
-        chrome.runtime.sendMessage({ type: 'postReviewData', reviewData: payload }, (response) => {
-            if (chrome.runtime.lastError) {
-                resolve({ success: false, error: chrome.runtime.lastError.message });
-                return;
-            }
-            resolve(response || { success: false, error: 'No response from background' });
-        });
-    });
+    return sendRuntimeMessageSafe({ type: 'postReviewData', reviewData: payload });
 }
 
 async function editInlineReviewFromForm(reviewId, reviewData) {
@@ -802,15 +945,7 @@ async function editInlineReviewFromForm(reviewId, reviewData) {
         comment: reviewData.comment
     };
 
-    return new Promise((resolve) => {
-        chrome.runtime.sendMessage({ type: 'editReviewData', reviewId, reviewData: payload }, (response) => {
-            if (chrome.runtime.lastError) {
-                resolve({ success: false, error: chrome.runtime.lastError.message });
-                return;
-            }
-            resolve(response || { success: false, error: 'No response from background' });
-        });
-    });
+    return sendRuntimeMessageSafe({ type: 'editReviewData', reviewId, reviewData: payload });
 }
 
 function wireInlineAddReview(modalOverlay, jobData, existingReview = null) {
@@ -914,8 +1049,8 @@ function wireInlineAddReview(modalOverlay, jobData, existingReview = null) {
             return;
         }
 
-        if (!reviewData.overall || !reviewData.sub1 || !reviewData.sub2 || !reviewData.sub3 || !reviewData.sub4) {
-            alert('Please rate all categories (Overall and all detailed ratings)');
+        if (!reviewData.overall) {
+            alert('Please rate the overall rating');
             return;
         }
 
@@ -958,21 +1093,11 @@ function wireInlineAddReview(modalOverlay, jobData, existingReview = null) {
 
         invalidateListingReviewCache(reviewData);
         refreshStudentskiListingStars({ forceRefresh: true });
-        updateReviewDisclosureLabel(modalOverlay, true);
 
-        fetchListingReviewSummary({ ...jobData, forceRefresh: true }, { forceRefresh: true })
-            .then((summary) => {
-                renderPopupAverageData(modalOverlay, summary);
-                renderPopupComments(modalOverlay, summary);
-            })
-            .catch((error) => {
-                console.warn('Failed to refresh popup summary after submit', error);
-            });
-
-        if (isEditMode) {
-            alert('Review updated successfully!');
-        } else {
-            alert('Review saved successfully!');
+        modalOverlay.remove();
+        const styleVars = document.getElementById('review-popup-css-vars');
+        if (styleVars) {
+            styleVars.remove();
         }
     });
 }
