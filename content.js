@@ -221,7 +221,7 @@ function extractWebsiteStyles() {
 
     let primaryColor = rootPrimary || '#8BC832';
     let textColor = rootText || '#000000';
-    let fontFamily = rootFont || 'Montserrat, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+    let fontFamily = rootFont ? `Montserrat, ${rootFont}` : 'Montserrat, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
     let backgroundColor = rootBackground || '#F0F3F5';
     let borderColor = rootBorder || '#dfe3e8';
 
