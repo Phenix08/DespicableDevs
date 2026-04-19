@@ -36,18 +36,31 @@ function injectVerifiedReviewButtons() {
     const jobRows = document.querySelectorAll(".row.border-bottom");
 
     jobRows.forEach(row => {
-        const titleDiv = row.querySelector(".col-12.h3");
+        const companyDiv = row.querySelector(".col-12.h3");
+        const titleDiv = Array.from(row.querySelectorAll("div.col-12"))
+    .find(div => !div.classList.contains("h3") && !div.classList.contains("mb-0"));
+
+    const jobTitle = titleDiv ? titleDiv.textContent.trim() : "";
+        if (!companyDiv) return;
         if (!titleDiv) return;
 
         // Prevent duplicates
+        if (companyDiv.querySelector(".my-review-btn")) return;
         if (titleDiv.querySelector(".my-review-btn")) return;
 
         // Wrap text in span (important!)
-        const text = titleDiv.firstChild.textContent.trim();
-        titleDiv.innerHTML = ""; // clear
+        const company = companyDiv.firstChild.textContent.trim();
+        const location = "";
+
+        const jobData = { title: jobTitle.toUpperCase(), company: company.toUpperCase(), location: location.toUpperCase() };
+
+        companyDiv.innerHTML = ""; // clear
+
+        console.log("Company:", company);
+        console.log("Job Title:", jobTitle);
 
         const textSpan = document.createElement("span");
-        textSpan.innerText = text;
+        textSpan.innerText = company;
 
         // Create button
         const btn = document.createElement("button");
@@ -63,7 +76,7 @@ function injectVerifiedReviewButtons() {
 
         const content = document.createElement("div");
 
-        const key = "review_" + text;
+        const key = "review_" + company;
         const savedRaw = localStorage.getItem(key);
         const saved = savedRaw ? JSON.parse(savedRaw) : null;
 
@@ -81,7 +94,7 @@ function injectVerifiedReviewButtons() {
         btn.onclick = () => {
             event.preventDefault();
             event.stopPropagation();
-            showAddReviewModal(text, (data) => {
+            showAddReviewModal(jobData, (data) => {
                 localStorage.setItem(key, JSON.stringify(data));
                 content.innerHTML = "★★★★★".slice(0, data.overall) + "☆☆☆☆☆".slice(data.overall);
                 content.style.fontSize = "1.8em";
@@ -89,13 +102,13 @@ function injectVerifiedReviewButtons() {
             }, { didWork: true });
         };
 
-        // FLEX layout for titleDiv
-        titleDiv.style.display = "flex";
-        titleDiv.style.alignItems = "center";
+        // FLEX layout for companyDiv
+        companyDiv.style.display = "flex";
+        companyDiv.style.alignItems = "center";
         btn.style.marginLeft = "auto";
 
-        titleDiv.appendChild(textSpan);
-        titleDiv.appendChild(btn);
+        companyDiv.appendChild(textSpan);
+        companyDiv.appendChild(btn);
     });
 }
 
@@ -155,7 +168,7 @@ function injectRatingsTable() {
             btn.onclick = () => {
                 event.preventDefault();
                 event.stopPropagation();
-                showAddReviewModal(company, (data) => {
+                showAddReviewModal(jobData, (data) => {
                     localStorage.setItem(key, JSON.stringify(data));
 
                     btn.innerText =
@@ -231,7 +244,7 @@ function injectPrijaveReviewButtons() {
             e.preventDefault();
             e.stopPropagation();
 
-            showAddReviewModal(company, (data) => {
+            showAddReviewModal(jobData, (data) => {
                 localStorage.setItem(key, JSON.stringify(data));
                 content.innerHTML = "★★★★★".slice(0, data.overall) + "☆☆☆☆☆".slice(data.overall);
                 content.style.fontSize = "1.8em";
@@ -291,13 +304,17 @@ async function postVerifiedReviewFromForm(reviewData) {
     });
 }
 
-function showAddReviewModal(company, onSave, context = {}) {
+function showAddReviewModal(jobData, onSave, context = {}) {
 
     // Remove existing modal if present
     const existingModal = document.getElementById('review-modal-overlay');
     if (existingModal) existingModal.remove();
 
+    console.log("Opening review modal for company:", jobData.company, "with context:", context);
+
     const websiteStyles = extractWebsiteStyles();
+    const savedRaw = localStorage.getItem("review_" + jobData.company);
+    const savedReview = savedRaw ? JSON.parse(savedRaw) : null;
 
     const modalOverlay = document.createElement('div');
     modalOverlay.id = 'review-modal-overlay';
@@ -334,43 +351,28 @@ function showAddReviewModal(company, onSave, context = {}) {
 
         // Autocomplete data
         const autocompleteData = {
-            'job-title-input': [
-                'Software Developer',
-                'Frontend Engineer',
-                'Backend Engineer',
-                'Full Stack Developer',
-                'Data Analyst',
-                'Project Manager',
-                'Designer',
-                'QA Engineer',
-                'DevOps Engineer',
-                'System Administrator'
-            ],
-            'company-input': [
-                'Google',
-                'Microsoft',
-                'Apple',
-                'Amazon',
-                'Facebook',
-                'Tesla',
-                'Netflix',
-                'Uber',
-                'Airbnb',
-                'LinkedIn'
-            ],
-            'location-input': [
-                'Ljubljana',
-                'Maribor',
-                'Koper',
-                'Celje',
-                'Kranj',
-                'Remote',
-                'New York',
-                'San Francisco',
-                'London',
-                'Berlin'
-            ]
+            'job-title-input': [],
+            'company-input': [],
+            'location-input': []
         };
+
+        const jobInput = modalOverlay.querySelector('#job-title-input');
+        if (jobInput && jobData.title) {
+            jobInput.value = jobData.title;
+        }
+
+        const companyInput = modalOverlay.querySelector('#company-input');
+        if (companyInput && jobData.company) {
+            companyInput.value = jobData.company;
+        }
+
+        const locationInput = modalOverlay.querySelector('#location-input');
+        if (locationInput && jobData.location) {
+            locationInput.value = jobData.location;
+        }
+
+        console.log("Extracted job data for modal:", jobData);
+        console.log(jobInput, companyInput, locationInput);
 
         // Initialize autocomplete for each field
         Object.keys(autocompleteData).forEach(fieldId => {
