@@ -8,6 +8,11 @@ const REVIEW_ENDPOINTS = [
     'http://127.0.0.1:5000/sendreview'
 ];
 
+const GET_REVIEW_ENDPOINTS = [
+    'http://localhost:5000/getreview',
+    'http://127.0.0.1:5000/getreview'
+];
+
 function fetchWithTimeout(url, options = {}, timeout = 6000) {
     return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
@@ -89,6 +94,37 @@ async function postReviewData(reviewData) {
     return lastError || { success: false, error: 'All endpoints failed' };
 }
 
+async function tryGetReviewData(url, params) {
+    const query = new URLSearchParams(params).toString();
+    const targetUrl = `${url}?${query}`;
+    const response = await fetchWithTimeout(targetUrl, { method: 'GET' }, 6000);
+    return response;
+}
+
+async function getReviewData(params) {
+    let lastError = null;
+
+    for (const endpoint of GET_REVIEW_ENDPOINTS) {
+        try {
+            const response = await tryGetReviewData(endpoint, params);
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.warn('Failed to fetch review data from', endpoint, response.status, errorText);
+                lastError = { success: false, status: response.status, error: errorText || ('HTTP ' + response.status) };
+                continue;
+            }
+
+            const body = await response.json();
+            return { success: true, status: response.status, data: body };
+        } catch (error) {
+            console.warn('Review GET failed for', endpoint, error);
+            lastError = { success: false, error: error?.message || String(error) };
+        }
+    }
+
+    return lastError || { success: false, error: 'All endpoints failed' };
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === 'postJobData') {
         postJobData(message.jobData)
@@ -99,6 +135,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     if (message?.type === 'postReviewData') {
         postReviewData(message.reviewData)
+            .then(result => sendResponse(result))
+            .catch(error => sendResponse({ success: false, error: error?.message || String(error) }));
+        return true;
+    }
+
+    if (message?.type === 'getReviewData') {
+        getReviewData(message.params)
             .then(result => sendResponse(result))
             .catch(error => sendResponse({ success: false, error: error?.message || String(error) }));
         return true;

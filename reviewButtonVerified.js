@@ -32,7 +32,6 @@ function injectVerifiedReviewButtons() {
     return;
     }
 
-    console.log("BANANA (review)");
 
     const jobRows = document.querySelectorAll(".row.border-bottom");
 
@@ -77,7 +76,7 @@ function injectVerifiedReviewButtons() {
             showAddReviewModal(text, (data) => {
                 localStorage.setItem(key, JSON.stringify(data));
                 btn.innerHTML = "★★★★★".slice(0, data.overall) + "☆☆☆☆☆".slice(data.overall);
-            });
+            }, { didWork: true });
         };
 
         titleDiv.appendChild(textSpan);
@@ -94,7 +93,6 @@ function injectRatingsTable() {
         return;
     }
 
-    console.log("BANANA (table ratings)");
 
     const table = document.querySelector("table");
     if (!table) return;
@@ -148,7 +146,7 @@ function injectRatingsTable() {
                     btn.innerText =
                         "★★★★★".slice(0, data.overall)
                         + "☆☆☆☆☆".slice(data.overall);
-                });
+                }, { didWork: true });
             };
 
             td.appendChild(btn);
@@ -169,7 +167,6 @@ function injectPrijaveReviewButtons() {
         return;
     }
 
-    console.log("BANANA (prijave review)");
 
     const rows = document.querySelectorAll(".row.border-bottom");
 
@@ -221,7 +218,7 @@ function injectPrijaveReviewButtons() {
                 btn.innerText =
                     "★★★★★".slice(0, data.overall) +
                     "☆☆☆☆☆".slice(data.overall);
-            });
+            }, { didApply: true });
         };
 
         // 🔥 wrapper (forces new line under ODPRI)
@@ -278,7 +275,7 @@ async function postVerifiedReviewFromForm(reviewData) {
     });
 }
 
-function showAddReviewModal(company, onSave) {
+function showAddReviewModal(company, onSave, context = {}) {
 
     // Remove existing modal if present
     const existingModal = document.getElementById('review-modal-overlay');
@@ -452,7 +449,10 @@ function showAddReviewModal(company, onSave) {
                     sub3: getSub3(),
                     sub4: getSub4(),
 
-                    comment: modalOverlay.querySelector('#review-comment')?.value || ""
+                    comment: modalOverlay.querySelector('#review-comment')?.value || "",
+                    anonymous: modalOverlay.querySelector('#anonymous-review')?.checked || false,
+                    didApply: context.didApply === true,
+                    didWork: context.didWork === true
                 };
 
                 // REQUIRED FIELDS CHECK
