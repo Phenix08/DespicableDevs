@@ -123,11 +123,25 @@
     gap: 0.4rem;
 }
 
+.bar-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
 .bar-label {
     font-size: 0.78rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
+    color: var(--text-color);
+}
+
+.bar-value {
+    font-size: 1.56rem;
+    line-height: 1;
+    font-weight: 700;
     color: var(--text-color);
 }
 
@@ -282,6 +296,11 @@
 .comment-date {
     font-size: 0.8rem;
     color: rgba(0, 0, 0, 0.55);
+}
+
+.comment-edited-marker {
+    color: rgba(0, 0, 0, 0.45);
+    font-style: italic;
 }
 
 .thumbs-up-btn {

@@ -70,26 +70,7 @@ function isMjobSite() {
 const reviewAverageCache = new Map();
 const reviewSummaryCache = new Map();
 const reviewSummaryInFlight = new Map();
-
-function normalizeCompanyForLookup(name) {
-    if (!name) return '';
-
-    let normalized = String(name).toUpperCase();
-    const suffixes = [
-        /\bD\s*\.?\s*O\s*\.?\s*O\s*\.?\b/g,
-        /\bD\s*\.?\s*D\s*\.?\b/g,
-        /\bS\s*\.?\s*P\s*\.?\b/g,
-        /\bD\s*\.?\s*N\s*\.?\s*O\s*\.?\b/g
-    ];
-
-    suffixes.forEach((suffix) => {
-        normalized = normalized.replace(suffix, '');
-    });
-
-    normalized = normalized.replace(/[^\w\s]/g, ' ');
-    normalized = normalized.replace(/\s+/g, ' ').trim();
-    return normalized;
-}
+const FALLBACK_CURRENT_USER_EMAIL = 'sara.strakl4@gmail.com';
 
 function toUpperTrim(value) {
     return (value || '').trim().toUpperCase();
@@ -97,7 +78,7 @@ function toUpperTrim(value) {
 
 function buildReviewLookupParams(jobData) {
     return {
-        company: normalizeCompanyForLookup(jobData.company),
+        company: jobData.company,
         position: toUpperTrim(jobData.title),
         location: toUpperTrim(jobData.location)
     };
@@ -116,6 +97,126 @@ function invalidateListingReviewCache(jobData) {
     reviewSummaryCache.delete(cacheKey);
     reviewAverageCache.delete(cacheKey);
     reviewSummaryInFlight.delete(cacheKey);
+}
+
+function getCurrentUserIdentity() {
+    const identity = {
+        email: '',
+        uid: '',
+        displayName: ''
+    };
+
+    const localEmail = (localStorage.getItem('currentUserEmail')
+        || localStorage.getItem('userEmail')
+        || localStorage.getItem('email')
+        || '').trim();
+    if (localEmail) identity.email = localEmail;
+
+    const firebaseKey = Object.keys(localStorage).find((key) => key.startsWith('firebase:authUser:'));
+    if (firebaseKey) {
+        try {
+            const authData = JSON.parse(localStorage.getItem(firebaseKey) || '{}');
+            if (!identity.email && typeof authData?.email === 'string') {
+                identity.email = authData.email.trim();
+            }
+            if (typeof authData?.uid === 'string') {
+                identity.uid = authData.uid.trim();
+            }
+            if (typeof authData?.displayName === 'string') {
+                identity.displayName = authData.displayName.trim();
+            }
+        } catch (error) {
+            // Ignore parse errors and use fallbacks.
+        }
+    }
+
+    if (!identity.email) {
+        identity.email = FALLBACK_CURRENT_USER_EMAIL;
+    }
+
+    return identity;
+}
+
+function normalizeIdentityValue(value) {
+    return String(value || '').trim().toLowerCase();
+}
+
+function buildInlineReviewStorageKey(jobData) {
+    return `inline_review_${(jobData?.company || '').trim()}::${(jobData?.title || '').trim()}::${(jobData?.location || '').trim()}`;
+}
+
+function getLocalInlineReview(jobData) {
+    try {
+        const localKey = buildInlineReviewStorageKey(jobData);
+        const raw = localStorage.getItem(localKey);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (error) {
+        return null;
+    }
+}
+
+function reviewBelongsToCurrentUser(review, identity) {
+    const currentEmail = normalizeIdentityValue(identity?.email);
+    const currentUid = String(identity?.uid || '').trim();
+    const currentDisplayName = normalizeIdentityValue(identity?.displayName);
+
+    const emailCandidates = [
+        review?.email,
+        review?.user_email,
+        review?.userEmail,
+        review?.authorEmail,
+        review?.user
+    ].map(normalizeIdentityValue).filter(Boolean);
+
+    const uidCandidates = [
+        review?.uid,
+        review?.user_id,
+        review?.userId,
+        review?.authorId,
+        review?.user
+    ].map((v) => String(v || '').trim()).filter(Boolean);
+
+    const nameCandidates = [
+        review?.display_name,
+        review?.displayName,
+        review?.user_name,
+        review?.user
+    ].map(normalizeIdentityValue).filter(Boolean);
+
+    if (currentEmail && emailCandidates.includes(currentEmail)) return true;
+    if (currentUid && uidCandidates.includes(currentUid)) return true;
+    if (currentDisplayName && nameCandidates.includes(currentDisplayName)) return true;
+    return false;
+}
+
+function getCurrentUserReview(summary, jobData) {
+    const reviews = Array.isArray(summary?.reviews) ? summary.reviews : [];
+    const identity = getCurrentUserIdentity();
+
+    const matchedBackendReview = reviews.find((review) => reviewBelongsToCurrentUser(review, identity));
+    if (matchedBackendReview) {
+        return matchedBackendReview;
+    }
+
+    return getLocalInlineReview(jobData);
+}
+
+function hasCurrentUserReviewed(summary, jobData) {
+    return Boolean(getCurrentUserReview(summary, jobData));
+}
+
+function updateReviewDisclosureLabel(modalOverlay, shouldEdit) {
+    const summaryNode = modalOverlay.querySelector('.add-review-summary');
+    if (summaryNode) {
+        summaryNode.textContent = shouldEdit ? 'Edit your review' : 'Add your review';
+    }
+
+    const inlineActionBtn = modalOverlay.querySelector('.inline-save-review-btn');
+    if (inlineActionBtn) {
+        inlineActionBtn.textContent = shouldEdit ? 'Save Changes' : 'Add Review';
+    }
 }
 
 function applyAverageStars(starsRoot, averageRating) {
@@ -183,7 +284,7 @@ async function fetchListingReviewSummary(jobData, { forceRefresh = false } = {})
                 return null;
             }
 
-            /*console.log('Reviews received for listing lookup:', params, result?.data?.reviews || []);*/
+            console.log('Reviews received for listing lookup:', params, result?.data?.reviews || []);
 
             const overall = Number(result?.data?.averages?.overall);
             const parsed = Number.isFinite(overall) ? overall : null;
@@ -206,8 +307,8 @@ function renderPopupAverageData(modalOverlay, summary) {
 
     const starsContainer = modalOverlay.querySelector('.stars');
     if (starsContainer) {
-        starsContainer.innerHTML = '<span class="extension-review-stars-text"><span class="stars-base">★★★★★</span><span class="stars-fill">★★★★★</span></span>';
-        const starsRoot = starsContainer.querySelector('.extension-review-stars-text');
+        starsContainer.innerHTML = '<span class="popup-overall-badge"><span class="popup-overall-logo" aria-hidden="true"></span><span class="popup-overall-stars extension-review-stars-text"><span class="stars-base">★★★★★</span><span class="stars-fill">★★★★★</span></span></span>';
+        const starsRoot = starsContainer.querySelector('.popup-overall-stars');
         applyAverageStars(starsRoot, overall);
     }
 
@@ -225,10 +326,16 @@ function renderPopupAverageData(modalOverlay, summary) {
     ];
 
     const barFills = modalOverlay.querySelectorAll('.rating-bar .bar-fill');
+    const barValues = modalOverlay.querySelectorAll('.rating-bar .bar-value');
     barFills.forEach((barFill, index) => {
         const value = orderedAverages[index];
         const clamped = Number.isFinite(value) ? Math.max(0, Math.min(5, value)) : 0;
         barFill.style.width = `${(clamped / 5) * 100}%`;
+
+        const valueNode = barValues[index];
+        if (valueNode) {
+            valueNode.textContent = Number.isFinite(value) ? clamped.toFixed(1) : '-';
+        }
     });
 }
 
@@ -361,6 +468,13 @@ function renderPopupComments(modalOverlay, summary) {
         date.className = 'comment-date';
         date.textContent = formatReviewDate(review?.date);
 
+        if (toBooleanFlag(review?.edited)) {
+            const editedMarker = document.createElement('span');
+            editedMarker.className = 'comment-edited-marker';
+            editedMarker.textContent = ' (edited)';
+            date.appendChild(editedMarker);
+        }
+
         const likesCount = Number(review?.likes);
         const thumbsUp = document.createElement('button');
         thumbsUp.className = 'thumbs-up-btn';
@@ -471,6 +585,31 @@ function ensureInjectedStarLogoStyles() {
             overflow: hidden;
             white-space: nowrap;
             width: 100%;
+        }
+        .popup-overall-badge {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+            line-height: 1;
+        }
+        .popup-overall-logo {
+            display: block;
+            width: 8.9em;
+            height: 1.72em;
+            background-color: #000000;
+            -webkit-mask-image: url("${chrome.runtime.getURL('Logos/LogoName.svg')}");
+            -webkit-mask-repeat: no-repeat;
+            -webkit-mask-size: contain;
+            -webkit-mask-position: left center;
+            mask-image: url("${chrome.runtime.getURL('Logos/LogoName.svg')}");
+            mask-repeat: no-repeat;
+            mask-size: contain;
+            mask-position: left center;
+        }
+        .popup-overall-stars {
+            margin-top: 0.16em;
+            font-size: 1.16em;
+            color: var(--primary-color);
         }
         .comment-status-badge {
             display: inline-flex;
@@ -747,7 +886,12 @@ function initializeInlineAutocomplete(container, inputId, dropdownId, options) {
 
 function setupInlineStars(modalOverlay, selector) {
     const container = modalOverlay.querySelector(selector);
-    if (!container) return () => 0;
+    if (!container) {
+        return {
+            get: () => 0,
+            set: () => {}
+        };
+    }
 
     const stars = container.querySelectorAll('span');
     let selected = 0;
@@ -767,7 +911,14 @@ function setupInlineStars(modalOverlay, selector) {
     });
 
     update();
-    return () => selected;
+    return {
+        get: () => selected,
+        set: (value) => {
+            const parsed = Number(value);
+            selected = Number.isFinite(parsed) ? Math.max(0, Math.min(5, Math.round(parsed))) : 0;
+            update();
+        }
+    };
 }
 
 async function postInlineReviewFromForm(reviewData) {
@@ -791,7 +942,7 @@ async function postInlineReviewFromForm(reviewData) {
     };
 
     return new Promise((resolve) => {
-        /*console.log('Sending review payload to backend (inline form):', payload);*/
+        console.log('Sending review payload to backend (inline form):', payload);
         chrome.runtime.sendMessage({ type: 'postReviewData', reviewData: payload }, (response) => {
             if (chrome.runtime.lastError) {
                 resolve({ success: false, error: chrome.runtime.lastError.message });
@@ -802,25 +953,102 @@ async function postInlineReviewFromForm(reviewData) {
     });
 }
 
-function wireInlineAddReview(modalOverlay, jobData) {
+async function editInlineReviewFromForm(reviewId, reviewData) {
+    const payload = {
+        company: reviewData.company,
+        title: reviewData.jobTitle,
+        location: reviewData.location,
+        overall_rating: reviewData.overall,
+        work_environment: reviewData.sub1,
+        location_rating: reviewData.sub2,
+        communication: reviewData.sub3,
+        flexibility: reviewData.sub4,
+        comment: reviewData.comment
+    };
+
+    return new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: 'editReviewData', reviewId, reviewData: payload }, (response) => {
+            if (chrome.runtime.lastError) {
+                resolve({ success: false, error: chrome.runtime.lastError.message });
+                return;
+            }
+            resolve(response || { success: false, error: 'No response from background' });
+        });
+    });
+}
+
+function wireInlineAddReview(modalOverlay, jobData, existingReview = null) {
     const titleInput = modalOverlay.querySelector('#inline-job-title-input');
     const companyInput = modalOverlay.querySelector('#inline-company-input');
     const locationInput = modalOverlay.querySelector('#inline-location-input');
     const commentInput = modalOverlay.querySelector('#inline-review-comment');
 
-    if (titleInput && jobData.title) titleInput.value = jobData.title;
-    if (companyInput && jobData.company) companyInput.value = jobData.company;
-    if (locationInput && jobData.location) locationInput.value = jobData.location;
+    const resolvedTitle = (
+        existingReview?.title
+        || existingReview?.position
+        || existingReview?.jobTitle
+        || jobData.title
+        || ''
+    );
+    const resolvedCompany = (
+        existingReview?.company
+        || jobData.company
+        || ''
+    );
+    const resolvedLocation = (
+        existingReview?.location
+        || jobData.location
+        || ''
+    );
+
+    if (titleInput) titleInput.value = String(resolvedTitle).trim();
+    if (companyInput) companyInput.value = String(resolvedCompany).trim();
+    if (locationInput) locationInput.value = String(resolvedLocation).trim();
 
     if (titleInput) titleInput.readOnly = true;
     if (companyInput) companyInput.readOnly = true;
     if (locationInput) locationInput.readOnly = true;
 
-    const getOverall = setupInlineStars(modalOverlay, '[data-target="inline-overall"]');
-    const getSub1 = setupInlineStars(modalOverlay, '[data-target="inline-sub1"]');
-    const getSub2 = setupInlineStars(modalOverlay, '[data-target="inline-sub2"]');
-    const getSub3 = setupInlineStars(modalOverlay, '[data-target="inline-sub3"]');
-    const getSub4 = setupInlineStars(modalOverlay, '[data-target="inline-sub4"]');
+    const overallStars = setupInlineStars(modalOverlay, '[data-target="inline-overall"]');
+    const sub1Stars = setupInlineStars(modalOverlay, '[data-target="inline-sub1"]');
+    const sub2Stars = setupInlineStars(modalOverlay, '[data-target="inline-sub2"]');
+    const sub3Stars = setupInlineStars(modalOverlay, '[data-target="inline-sub3"]');
+    const sub4Stars = setupInlineStars(modalOverlay, '[data-target="inline-sub4"]');
+
+    if (existingReview) {
+        const pickValue = (...values) => values.find((value) => value !== undefined && value !== null && value !== '');
+
+        overallStars.set(pickValue(
+            existingReview?.rating,
+            existingReview?.overall_rating,
+            existingReview?.overall
+        ));
+        sub1Stars.set(pickValue(
+            existingReview?.work_environment,
+            existingReview?.sub1,
+            existingReview?.workEnvironment
+        ));
+        sub2Stars.set(pickValue(
+            existingReview?.location_rating,
+            existingReview?.sub2,
+            existingReview?.location,
+            existingReview?.locationRating
+        ));
+        sub3Stars.set(pickValue(
+            existingReview?.communication,
+            existingReview?.sub3
+        ));
+        sub4Stars.set(pickValue(
+            existingReview?.flexibility,
+            existingReview?.sub4
+        ));
+
+        if (commentInput) {
+            commentInput.value = existingReview?.comment || '';
+        }
+    } else if (commentInput) {
+        commentInput.value = '';
+    }
 
     const saveBtn = modalOverlay.querySelector('.inline-save-review-btn');
     if (!saveBtn) return;
@@ -828,18 +1056,21 @@ function wireInlineAddReview(modalOverlay, jobData) {
     saveBtn.addEventListener('click', async (event) => {
         event.preventDefault();
 
+        const isEditMode = (saveBtn.textContent || '').trim().toLowerCase() === 'save changes';
+        const existingReviewId = String(existingReview?.review_id || '').trim();
+
         const reviewData = {
             company: companyInput?.value.trim() || '',
             jobTitle: titleInput?.value.trim() || '',
             location: locationInput?.value.trim() || '',
-            overall: getOverall(),
-            sub1: getSub1(),
-            sub2: getSub2(),
-            sub3: getSub3(),
-            sub4: getSub4(),
+            overall: overallStars.get(),
+            sub1: sub1Stars.get(),
+            sub2: sub2Stars.get(),
+            sub3: sub3Stars.get(),
+            sub4: sub4Stars.get(),
             comment: commentInput?.value.trim() || '',
             anonymous: false,
-            user: "sara.strakl4@gmail.com"
+            user: getCurrentUserIdentity().email
         };
 
         if (!reviewData.company || !reviewData.jobTitle || !reviewData.location) {
@@ -856,15 +1087,57 @@ function wireInlineAddReview(modalOverlay, jobData) {
         localStorage.setItem(storageKey, JSON.stringify(reviewData));
         console.log('Saved inline review:', reviewData);
 
-        const postResult = await postInlineReviewFromForm(reviewData);
-        if (!postResult?.success) {
-            console.warn('Failed to post inline review:', postResult?.error || 'Unknown error');
+        let actionResult = null;
+
+        if (isEditMode) {
+            if (!existingReviewId) {
+                alert('Could not find the review id for editing. Please refresh and try again.');
+                return;
+            }
+            actionResult = await editInlineReviewFromForm(existingReviewId, reviewData);
         } else {
-            invalidateListingReviewCache(reviewData);
-            refreshStudentskiListingStars({ forceRefresh: true });
+            actionResult = await postInlineReviewFromForm(reviewData);
         }
 
-        alert('Review saved successfully!');
+        if (!actionResult?.success) {
+            console.warn('Failed to submit inline review:', actionResult?.error || 'Unknown error');
+            alert('Failed to save review. Please try again.');
+            return;
+        }
+
+        if (!isEditMode) {
+            try {
+                const responseBody = actionResult?.body ? JSON.parse(actionResult.body) : null;
+                const createdReviewId = String(responseBody?.review_id || '').trim();
+                if (createdReviewId) {
+                    localStorage.setItem(storageKey, JSON.stringify({
+                        ...reviewData,
+                        review_id: createdReviewId
+                    }));
+                }
+            } catch (error) {
+                // Keep saved local review without review_id if response parsing fails.
+            }
+        }
+
+        invalidateListingReviewCache(reviewData);
+        refreshStudentskiListingStars({ forceRefresh: true });
+        updateReviewDisclosureLabel(modalOverlay, true);
+
+        fetchListingReviewSummary({ ...jobData, forceRefresh: true }, { forceRefresh: true })
+            .then((summary) => {
+                renderPopupAverageData(modalOverlay, summary);
+                renderPopupComments(modalOverlay, summary);
+            })
+            .catch((error) => {
+                console.warn('Failed to refresh popup summary after submit', error);
+            });
+
+        if (isEditMode) {
+            alert('Review updated successfully!');
+        } else {
+            alert('Review saved successfully!');
+        }
     });
 }
 
@@ -925,14 +1198,16 @@ function showReviewModal(jobData = {}) {
             .then((summary) => {
                 renderPopupAverageData(modalOverlay, summary);
                 renderPopupComments(modalOverlay, summary);
+                updateReviewDisclosureLabel(modalOverlay, hasCurrentUserReviewed(summary, jobData));
+                wireInlineAddReview(modalOverlay, jobData, getCurrentUserReview(summary, jobData));
             })
             .catch((error) => {
                 console.warn('Failed to load popup averages', error);
                 renderPopupAverageData(modalOverlay, null);
                 renderPopupComments(modalOverlay, null);
+                updateReviewDisclosureLabel(modalOverlay, hasCurrentUserReviewed(null, jobData));
+                wireInlineAddReview(modalOverlay, jobData, null);
             });
-
-        wireInlineAddReview(modalOverlay, jobData);
 
         document.getElementById('review-modal-close').onclick = () => {
             modalOverlay.remove();
