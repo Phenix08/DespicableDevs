@@ -70,6 +70,7 @@ function isMjobSite() {
 const reviewAverageCache = new Map();
 const reviewSummaryCache = new Map();
 const reviewSummaryInFlight = new Map();
+const FALLBACK_CURRENT_USER_EMAIL = 'sara.strakl4@gmail.com';
 
 function normalizeCompanyForLookup(name) {
     if (!name) return '';
@@ -116,6 +117,104 @@ function invalidateListingReviewCache(jobData) {
     reviewSummaryCache.delete(cacheKey);
     reviewAverageCache.delete(cacheKey);
     reviewSummaryInFlight.delete(cacheKey);
+}
+
+function getCurrentUserIdentity() {
+    const identity = {
+        email: '',
+        uid: '',
+        displayName: ''
+    };
+
+    const localEmail = (localStorage.getItem('currentUserEmail')
+        || localStorage.getItem('userEmail')
+        || localStorage.getItem('email')
+        || '').trim();
+    if (localEmail) identity.email = localEmail;
+
+    const firebaseKey = Object.keys(localStorage).find((key) => key.startsWith('firebase:authUser:'));
+    if (firebaseKey) {
+        try {
+            const authData = JSON.parse(localStorage.getItem(firebaseKey) || '{}');
+            if (!identity.email && typeof authData?.email === 'string') {
+                identity.email = authData.email.trim();
+            }
+            if (typeof authData?.uid === 'string') {
+                identity.uid = authData.uid.trim();
+            }
+            if (typeof authData?.displayName === 'string') {
+                identity.displayName = authData.displayName.trim();
+            }
+        } catch (error) {
+            // Ignore parse errors and use fallbacks.
+        }
+    }
+
+    if (!identity.email) {
+        identity.email = FALLBACK_CURRENT_USER_EMAIL;
+    }
+
+    return identity;
+}
+
+function normalizeIdentityValue(value) {
+    return String(value || '').trim().toLowerCase();
+}
+
+function buildInlineReviewStorageKey(jobData) {
+    return `inline_review_${(jobData?.company || '').trim()}::${(jobData?.title || '').trim()}::${(jobData?.location || '').trim()}`;
+}
+
+function reviewBelongsToCurrentUser(review, identity) {
+    const currentEmail = normalizeIdentityValue(identity?.email);
+    const currentUid = String(identity?.uid || '').trim();
+    const currentDisplayName = normalizeIdentityValue(identity?.displayName);
+
+    const emailCandidates = [
+        review?.email,
+        review?.user_email,
+        review?.userEmail,
+        review?.authorEmail,
+        review?.user
+    ].map(normalizeIdentityValue).filter(Boolean);
+
+    const uidCandidates = [
+        review?.uid,
+        review?.user_id,
+        review?.userId,
+        review?.authorId,
+        review?.user
+    ].map((v) => String(v || '').trim()).filter(Boolean);
+
+    const nameCandidates = [
+        review?.display_name,
+        review?.displayName,
+        review?.user_name,
+        review?.user
+    ].map(normalizeIdentityValue).filter(Boolean);
+
+    if (currentEmail && emailCandidates.includes(currentEmail)) return true;
+    if (currentUid && uidCandidates.includes(currentUid)) return true;
+    if (currentDisplayName && nameCandidates.includes(currentDisplayName)) return true;
+    return false;
+}
+
+function hasCurrentUserReviewed(summary, jobData) {
+    const reviews = Array.isArray(summary?.reviews) ? summary.reviews : [];
+    const identity = getCurrentUserIdentity();
+
+    if (reviews.some((review) => reviewBelongsToCurrentUser(review, identity))) {
+        return true;
+    }
+
+    const localKey = buildInlineReviewStorageKey(jobData);
+    return Boolean(localStorage.getItem(localKey));
+}
+
+function updateReviewDisclosureLabel(modalOverlay, shouldEdit) {
+    const summaryNode = modalOverlay.querySelector('.add-review-summary');
+    if (!summaryNode) return;
+    summaryNode.textContent = shouldEdit ? 'Edit your review' : 'Add your review';
 }
 
 function applyAverageStars(starsRoot, averageRating) {
@@ -206,8 +305,8 @@ function renderPopupAverageData(modalOverlay, summary) {
 
     const starsContainer = modalOverlay.querySelector('.stars');
     if (starsContainer) {
-        starsContainer.innerHTML = '<span class="extension-review-stars-text"><span class="stars-base">★★★★★</span><span class="stars-fill">★★★★★</span></span>';
-        const starsRoot = starsContainer.querySelector('.extension-review-stars-text');
+        starsContainer.innerHTML = '<span class="popup-overall-badge"><span class="popup-overall-logo" aria-hidden="true"></span><span class="popup-overall-stars extension-review-stars-text"><span class="stars-base">★★★★★</span><span class="stars-fill">★★★★★</span></span></span>';
+        const starsRoot = starsContainer.querySelector('.popup-overall-stars');
         applyAverageStars(starsRoot, overall);
     }
 
@@ -225,10 +324,16 @@ function renderPopupAverageData(modalOverlay, summary) {
     ];
 
     const barFills = modalOverlay.querySelectorAll('.rating-bar .bar-fill');
+    const barValues = modalOverlay.querySelectorAll('.rating-bar .bar-value');
     barFills.forEach((barFill, index) => {
         const value = orderedAverages[index];
         const clamped = Number.isFinite(value) ? Math.max(0, Math.min(5, value)) : 0;
         barFill.style.width = `${(clamped / 5) * 100}%`;
+
+        const valueNode = barValues[index];
+        if (valueNode) {
+            valueNode.textContent = Number.isFinite(value) ? clamped.toFixed(1) : '-';
+        }
     });
 }
 
@@ -471,6 +576,31 @@ function ensureInjectedStarLogoStyles() {
             overflow: hidden;
             white-space: nowrap;
             width: 100%;
+        }
+        .popup-overall-badge {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+            line-height: 1;
+        }
+        .popup-overall-logo {
+            display: block;
+            width: 8.9em;
+            height: 1.72em;
+            background-color: #000000;
+            -webkit-mask-image: url("${chrome.runtime.getURL('Logos/LogoName.svg')}");
+            -webkit-mask-repeat: no-repeat;
+            -webkit-mask-size: contain;
+            -webkit-mask-position: left center;
+            mask-image: url("${chrome.runtime.getURL('Logos/LogoName.svg')}");
+            mask-repeat: no-repeat;
+            mask-size: contain;
+            mask-position: left center;
+        }
+        .popup-overall-stars {
+            margin-top: 0.16em;
+            font-size: 1.16em;
+            color: var(--primary-color);
         }
         .comment-status-badge {
             display: inline-flex;
@@ -839,7 +969,7 @@ function wireInlineAddReview(modalOverlay, jobData) {
             sub4: getSub4(),
             comment: commentInput?.value.trim() || '',
             anonymous: false,
-            user: "sara.strakl4@gmail.com"
+            user: getCurrentUserIdentity().email
         };
 
         if (!reviewData.company || !reviewData.jobTitle || !reviewData.location) {
@@ -862,6 +992,7 @@ function wireInlineAddReview(modalOverlay, jobData) {
         } else {
             invalidateListingReviewCache(reviewData);
             refreshStudentskiListingStars({ forceRefresh: true });
+            updateReviewDisclosureLabel(modalOverlay, true);
         }
 
         alert('Review saved successfully!');
@@ -925,11 +1056,13 @@ function showReviewModal(jobData = {}) {
             .then((summary) => {
                 renderPopupAverageData(modalOverlay, summary);
                 renderPopupComments(modalOverlay, summary);
+                updateReviewDisclosureLabel(modalOverlay, hasCurrentUserReviewed(summary, jobData));
             })
             .catch((error) => {
                 console.warn('Failed to load popup averages', error);
                 renderPopupAverageData(modalOverlay, null);
                 renderPopupComments(modalOverlay, null);
+                updateReviewDisclosureLabel(modalOverlay, hasCurrentUserReviewed(null, jobData));
             });
 
         wireInlineAddReview(modalOverlay, jobData);
