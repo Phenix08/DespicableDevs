@@ -246,6 +246,38 @@ function injectPrijaveReviewButtons() {
 injectPrijaveReviewButtons();
 setInterval(injectPrijaveReviewButtons, 2000);
 
+async function postVerifiedReviewFromForm(reviewData) {
+    const isAnonymous = reviewData.anonymous === true;
+    const user = (reviewData.user || '').trim();
+
+    const payload = {
+        company: reviewData.company,
+        title: reviewData.jobTitle,
+        location: reviewData.location,
+        overall_rating: reviewData.overall,
+        work_environment: reviewData.sub1,
+        location_rating: reviewData.sub2,
+        communication: reviewData.sub3,
+        flexibility: reviewData.sub4,
+        comment: reviewData.comment,
+        isAnonymous: isAnonymous,
+        didApply: reviewData.didApply === true,
+        didWork: reviewData.didWork === true,
+        user: user
+    };
+
+    return new Promise((resolve) => {
+        console.log('Sending review payload to backend (verified modal):', payload);
+        chrome.runtime.sendMessage({ type: 'postReviewData', reviewData: payload }, (response) => {
+            if (chrome.runtime.lastError) {
+                resolve({ success: false, error: chrome.runtime.lastError.message });
+                return;
+            }
+            resolve(response || { success: false, error: 'No response from background' });
+        });
+    });
+}
+
 function showAddReviewModal(company, onSave) {
 
     // Remove existing modal if present
@@ -407,7 +439,7 @@ function showAddReviewModal(company, onSave) {
         const saveBtn = modalOverlay.querySelector('#save-review');
 
         if (saveBtn) {
-            saveBtn.onclick = () => {
+            saveBtn.onclick = async () => {
 
                 const data = {
                     company: getInputValue('company-input') || company,
@@ -430,6 +462,11 @@ function showAddReviewModal(company, onSave) {
                 }
 
                 onSave(data);
+
+                const postResult = await postVerifiedReviewFromForm(data);
+                if (!postResult?.success) {
+                    console.warn('Failed to post review:', postResult?.error || 'Unknown error');
+                }
 
                 modalOverlay.remove();
                 styleVars.remove();
