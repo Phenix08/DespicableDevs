@@ -7,7 +7,9 @@
 The main coding languages we used are **JavaScript**, **html** and **css**, while our backend uses *Flask* with **python**. For our database we used Firebase, where we have stored the collections of companies, reviews, and users. We also used Copilot in VS Code in addition to Gemini and ChatGPT to help us with code structuring, formatting, and debugging.
 
 ## FEATURES
-Users can utilize the extension on websites of Slovenian student job websites (študentski servisi) to **read and write reviews**. The overall ratings appear **overlaid on the job adverts** next to our logo when browsing the sites. A pop up with a more **detailed overview** of the reviews and category ratings appears upon clicking on the graphic. Students can also **submit their reviews** either via the advert or the referrals and applications pages. If they choose the former, their review is *unverified*, since we cannot confirm whether or not they worked a certain job. To achieve that they have to submit a review from the referrals or applications page, where we can see that they truly applied or worked at a job, and therefore get a *verified review*. The review includes the **overall rating**, as well as ratings for individual categories of work environment, location, communications, and flexibility. They can also add any additional **comments** they might have and, in the case of verified reviews, choose to be *anonymous*. Other users can then like or dislike other reviews. Our extension currently supports [e-študentski servis](https://www.studentski-servis.com/studenti/) and [Mjob](https://www.mjob.si/), where the user interface changes slightly based on the underlying website's interface, making for a more *integrated user experience*.
+Users can utilize the extension on websites of Slovenian student job websites (študentski servisi) to **read and write reviews**. The overall ratings appear **overlaid on the job adverts** next to our logo when browsing the sites. A pop up with a more **detailed overview** of the reviews and category ratings appears upon clicking on the graphic. Students can also **submit their reviews** either via the advert or the referrals and applications pages. If they choose the former, their review is *unverified*, since we cannot confirm whether or not they worked a certain job. To achieve that they have to submit a review from the referrals or applications page, where we can see that they truly applied or worked at a job, and therefore get a *verified review*.
+
+The review includes the **overall rating**, as well as ratings for individual categories of work environment, location, communications, and flexibility. They can also add any additional **comments** they might have and, in the case of verified reviews, choose to be *anonymous*. Other users can then like or dislike other reviews. Our extension currently supports [e-študentski servis](https://www.studentski-servis.com/studenti/) and [Mjob](https://www.mjob.si/), where the user interface changes slightly based on the underlying website's interface, making for a more *integrated user experience*.
 
 ## SETUP
 To run the server locally:
@@ -17,7 +19,7 @@ To run the server locally:
 To use our browser extension:
 - It is recommended that you use **Google Chrome** or a Chromium-based browser
 - Search for chrome://extensions and click on 'Load unpacked', then select the folder where the code is
-- Go to the [website URL](https://www.studentski-servis.com/studenti/) or https://www.mjob.si/ and log into a student account
+- Go to the https://www.studentski-servis.com/studenti/ or https://www.mjob.si/ and log into a student account
 - *Inform and be informed :)*
 
 ## CHALLENGES & LEARNING
