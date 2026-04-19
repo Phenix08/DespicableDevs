@@ -24,6 +24,7 @@ function ensureInjectedStarLogoStyles() {
     document.head.appendChild(style);
 }
 
+
 function injectVerifiedReviewButtons() {
     ensureInjectedStarLogoStyles();
 
@@ -130,6 +131,8 @@ function injectRatingsTable() {
         if (saved) {
             const btn = document.createElement("button");
             btn.className = "btn btn-action my-ocena-btn";
+            btn.style.fontSize = "1.3em";
+            btn.style.lineHeight = "1";
 
             const stars =
                 "★★★★★".slice(0, saved.overall)
@@ -160,6 +163,7 @@ injectRatingsTable();
 setInterval(injectRatingsTable, 2000);
 
 function injectPrijaveReviewButtons() {
+    ensureInjectedStarLogoStyles();
 
     if (!window.location.href.includes("/studenti/moje-prijave-na-dela")) {
         return;
@@ -189,10 +193,21 @@ function injectPrijaveReviewButtons() {
         const btn = document.createElement("button");
         btn.className = "btn btn-sm btn-action my-prijave-review-btn";
         btn.type = "button";
+        if (saved) {
+            btn.style.fontSize = "1.3em";
+            btn.style.lineHeight = "1";
+        }
 
         btn.innerText = saved
             ? "★★★★★".slice(0, saved.overall) + "☆☆☆☆☆".slice(saved.overall)
             : "Review";
+
+        const logo = document.createElement("span");
+        logo.className = "extension-review-stars-logo";
+        logo.setAttribute("aria-hidden", "true");
+        if (!saved) {
+            logo.style.display = "none";
+        }
 
         btn.onclick = (e) => {
             e.preventDefault();
@@ -200,7 +215,9 @@ function injectPrijaveReviewButtons() {
 
             showAddReviewModal(company, (data) => {
                 localStorage.setItem(key, JSON.stringify(data));
-
+                logo.style.display = "";
+                btn.style.fontSize = "1.3em";
+                btn.style.lineHeight = "1";
                 btn.innerText =
                     "★★★★★".slice(0, data.overall) +
                     "☆☆☆☆☆".slice(data.overall);
@@ -214,9 +231,11 @@ function injectPrijaveReviewButtons() {
         // IMPORTANT: force full width so it drops below
         wrapper.style.width = "100%";
         wrapper.style.display = "flex";
-        wrapper.style.justifyContent = "flex-end";
+        wrapper.style.flexDirection = "column";
+        wrapper.style.alignItems = "flex-end";
         wrapper.style.marginTop = "6px";
 
+        wrapper.appendChild(logo);
         wrapper.appendChild(btn);
 
         // insert AFTER ODPRI button (not inside same flex row behavior)
