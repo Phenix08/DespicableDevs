@@ -67,6 +67,32 @@ function isMjobSite() {
     return window.location.host.includes('mjob');
 }
 
+function ensureInjectedStarLogoStyles() {
+    if (document.getElementById('despicable-devs-star-logo-style')) return;
+
+    const style = document.createElement('style');
+    style.id = 'despicable-devs-star-logo-style';
+    style.textContent = `
+        .extension-review-stars-logo {
+            display: block;
+            width: 8.58em;
+            height: 1.65em;
+            margin-left: auto;
+            background-color: currentColor;
+            -webkit-mask-image: url("${chrome.runtime.getURL('Logos/LogoName.svg')}");
+            -webkit-mask-repeat: no-repeat;
+            -webkit-mask-size: contain;
+            -webkit-mask-position: right center;
+            mask-image: url("${chrome.runtime.getURL('Logos/LogoName.svg')}");
+            mask-repeat: no-repeat;
+            mask-size: contain;
+            mask-position: right center;
+            vertical-align: middle;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 function ensureMjobStarHoverStyles() {
     if (!isMjobSite() || document.getElementById('despicable-devs-mjob-star-style')) return;
 
@@ -114,6 +140,7 @@ function observeMjobJobRows() {
 
 function injectButton() {
     console.log("BANANA");
+    ensureInjectedStarLogoStyles();
 
     if (isMjobSite()) {
         ensureMjobStarHoverStyles();
@@ -130,7 +157,7 @@ function injectButton() {
 
             const btn = document.createElement('button');
             btn.className = 'btn btn-action ml-auto mjob-review-stars-btn';
-            btn.innerHTML = '★★★★★';
+            btn.innerHTML = '<span class="extension-review-stars-logo" aria-hidden="true"></span>';
             btn.style.fontSize = '16px';
 
             btn.onclick = (event) => {
@@ -164,7 +191,7 @@ function injectButton() {
 
         const btn = document.createElement('button');
         btn.className = 'btn btn-action ml-auto';
-        btn.innerHTML = '★★★★★';
+        btn.innerHTML = '<span class="extension-review-stars-logo" aria-hidden="true"></span>';
         btn.style.fontSize = '16px';
 
         btn.onclick = (event) => {
