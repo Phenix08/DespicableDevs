@@ -280,6 +280,17 @@ def like_review_data(review_id):
 
 	return {"status": "updated"}
 
+@app.route("/dislikereview/<review_id>", methods=["PUT"])
+def dislike_review_data(review_id):
+
+	review_ref = db.collection("reviews").document(review_id)
+
+	review_ref.update({
+		"likes": firestore.Increment(-1)
+	})
+
+	return {"status": "updated"}
+
 @app.route("/deletereview/<review_id>", methods=["DELETE"])
 def remove_review_data(review_id):
     review_ref = db.collection("reviews").document(review_id)
