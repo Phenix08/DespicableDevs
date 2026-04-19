@@ -6,8 +6,8 @@ function ensureInjectedStarLogoStyles() {
     style.textContent = `
         .extension-review-stars-logo {
             display: block;
-            width: 8.58em;
-            height: 1.65em;
+            width: 12em;
+            height: 2.3em;
             margin-left: auto;
             background-color: currentColor;
             -webkit-mask-image: url("${chrome.runtime.getURL('Logos/LogoName.svg')}");
@@ -52,32 +52,47 @@ function injectVerifiedReviewButtons() {
         // Create button
         const btn = document.createElement("button");
         btn.className = "btn btn-action my-review-btn";
+        btn.style.display = "flex";
+        btn.style.flexDirection = "column";
+        btn.style.alignItems = "center";
+        btn.style.gap = "0.5rem";
+
+        const logo = document.createElement("span");
+        logo.className = "extension-review-stars-logo";
+        logo.setAttribute("aria-hidden", "true");
+
+        const content = document.createElement("div");
 
         const key = "review_" + text;
         const savedRaw = localStorage.getItem(key);
         const saved = savedRaw ? JSON.parse(savedRaw) : null;
 
         if (saved) {
-            btn.innerHTML = '<span class="extension-review-stars-logo" aria-hidden="true"></span>';
+            content.innerHTML = "★★★★★".slice(0, saved.overall) + "☆☆☆☆☆".slice(saved.overall);
+            content.style.fontSize = "1.8em";
+            content.style.lineHeight = "1";
         } else {
-            btn.innerText = "Add review";
+            content.innerText = "Add review";
         }
 
-        // FLEX layout
-        titleDiv.style.display = "flex";
-        titleDiv.style.alignItems = "center";
-
-        // 👉 THIS is the key line
-        btn.style.marginLeft = "auto";
+        btn.appendChild(logo);
+        btn.appendChild(content);
 
         btn.onclick = () => {
             event.preventDefault();
             event.stopPropagation();
             showAddReviewModal(text, (data) => {
                 localStorage.setItem(key, JSON.stringify(data));
-                btn.innerHTML = "★★★★★".slice(0, data.overall) + "☆☆☆☆☆".slice(data.overall);
+                content.innerHTML = "★★★★★".slice(0, data.overall) + "☆☆☆☆☆".slice(data.overall);
+                content.style.fontSize = "1.8em";
+                content.style.lineHeight = "1";
             }, { didWork: true });
         };
+
+        // FLEX layout for titleDiv
+        titleDiv.style.display = "flex";
+        titleDiv.style.alignItems = "center";
+        btn.style.marginLeft = "auto";
 
         titleDiv.appendChild(textSpan);
         titleDiv.appendChild(btn);
@@ -129,7 +144,7 @@ function injectRatingsTable() {
         if (saved) {
             const btn = document.createElement("button");
             btn.className = "btn btn-action my-ocena-btn";
-            btn.style.fontSize = "1.3em";
+            btn.style.fontSize = "1.8em";
             btn.style.lineHeight = "1";
 
             const stars =
@@ -190,21 +205,27 @@ function injectPrijaveReviewButtons() {
         const btn = document.createElement("button");
         btn.className = "btn btn-sm btn-action my-prijave-review-btn";
         btn.type = "button";
-        if (saved) {
-            btn.style.fontSize = "1.3em";
-            btn.style.lineHeight = "1";
-        }
-
-        btn.innerText = saved
-            ? "★★★★★".slice(0, saved.overall) + "☆☆☆☆☆".slice(saved.overall)
-            : "Review";
+        btn.style.display = "flex";
+        btn.style.flexDirection = "column";
+        btn.style.alignItems = "center";
+        btn.style.gap = "0.5rem";
 
         const logo = document.createElement("span");
         logo.className = "extension-review-stars-logo";
         logo.setAttribute("aria-hidden", "true");
-        if (!saved) {
-            logo.style.display = "none";
+
+        const content = document.createElement("div");
+
+        if (saved) {
+            content.innerHTML = "★★★★★".slice(0, saved.overall) + "☆☆☆☆☆".slice(saved.overall);
+            content.style.fontSize = "1.8em";
+            content.style.lineHeight = "1";
+        } else {
+            content.innerText = "Add review";
         }
+
+        btn.appendChild(logo);
+        btn.appendChild(content);
 
         btn.onclick = (e) => {
             e.preventDefault();
@@ -212,12 +233,9 @@ function injectPrijaveReviewButtons() {
 
             showAddReviewModal(company, (data) => {
                 localStorage.setItem(key, JSON.stringify(data));
-                logo.style.display = "";
-                btn.style.fontSize = "1.3em";
-                btn.style.lineHeight = "1";
-                btn.innerText =
-                    "★★★★★".slice(0, data.overall) +
-                    "☆☆☆☆☆".slice(data.overall);
+                content.innerHTML = "★★★★★".slice(0, data.overall) + "☆☆☆☆☆".slice(data.overall);
+                content.style.fontSize = "1.8em";
+                content.style.lineHeight = "1";
             }, { didApply: true });
         };
 
@@ -228,11 +246,9 @@ function injectPrijaveReviewButtons() {
         // IMPORTANT: force full width so it drops below
         wrapper.style.width = "100%";
         wrapper.style.display = "flex";
-        wrapper.style.flexDirection = "column";
-        wrapper.style.alignItems = "flex-end";
+        wrapper.style.justifyContent = "flex-end";
         wrapper.style.marginTop = "6px";
 
-        wrapper.appendChild(logo);
         wrapper.appendChild(btn);
 
         // insert AFTER ODPRI button (not inside same flex row behavior)
