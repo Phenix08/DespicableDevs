@@ -80,6 +80,67 @@ def add_review_data():
 	flexibility = data.get('flexibility')
 	comment = data.get('comment')
 
+	users_ref = db.collection('users')
+	query = companies_ref.where('email', '==', data.get('cuser')).limit(1).stream()
+	existing_user_doc = next(query, None)
+	user = existing_user_doc.id
+	anonymus = data.get('isAnonymus')
+
+	applied = data.get('didApply')
+	worked = data.get('didWork')
+
+	reviews_ref = db.collection('reviews')
+
+	new_review_doc_ref = reviews_ref.add({
+		"company": company,
+		"position": position,
+		"location": location,
+		"rating": rating,
+		"work_environment": work_environment,
+		"location_rating": location_rating,
+		"communication": communication,
+		"flexibility": flexibility,
+		"comment": comment,
+		"user": user,
+		"anonymus": anonymus,
+		"date": firestore.SERVER_TIMESTAMP,
+		"edited": False,
+		"likes": 0,
+		"applied": applied,
+		"worked": worked
+	})
+	
+	review_id = new_review_doc_ref[1].id
+	
+	if not review_id:
+		return {"error": "Missing review_id"}, 400
+	
+	return {"status": "success"}
+
+@app.route("/getreview")
+def get_review_data():
+	company = request.args.get('company')
+	position = request.args.get('company')
+	location = request.args.get('location')
+
+	reviews_ref = db.collection('companies')
+	query = companies_ref.where('name', '==', data.get('company')).limit(1).stream()
+	existing_company_doc = next(query, None)
+	company = existing_company_doc.id
+
+	position = data.get('title')
+	position = position.upper()
+
+	location = data.get('location')
+	location = location.upper()
+
+	rating = data.get('overall_rating')
+	work_environment = data.get('work_environment')
+	location_rating = data.get('location_rating')
+	communication = data.get('communication')
+	flexibility = data.get('flexibility')
+	comment = data.get('comment')
+
 	users_ref = db.collection('cusers')
 	query = companies_ref.where('email', '==', data.get('cuser')).limit(1).stream()
 	existing_user_doc = next(query, None)
