@@ -250,5 +250,43 @@ def get_company_data():
 
 	return jsonify(company_details)
 
+@app.route("/editreview/<review_id>", methods=["PUT"])
+def edit_review_data(review_id):
+	data = request.json
+
+	review_ref = db.collection("reviews").document(review_id)
+
+	review_ref.update({
+		"overall_rating": data.get("overall_rating"),
+		"work_environment": data.get("work_environment"),
+		"location_rating": data.get("location_rating"),
+		"communication": data.get("communication"),
+		"flexibility": data.get("flexibility"),
+		"comment": data.get("comment"),
+		"edited": True,
+		"date": firestore.SERVER_TIMESTAMP
+	})
+
+	return {"status": "updated"}
+
+@app.route("/likereview/<review_id>", methods=["PUT"])
+def like_review_data(review_id):
+
+	review_ref = db.collection("reviews").document(review_id)
+
+	review_ref.update({
+		"likes": firestore.Increment(1)
+	})
+
+	return {"status": "updated"}
+
+@app.route("/deletereview/<review_id>", methods=["DELETE"])
+def remove_review_data(review_id):
+    review_ref = db.collection("reviews").document(review_id)
+
+    review_ref.delete()
+
+    return {"status": "deleted"}
+
 if __name__ == '__main__':
 	app.run(debug=True)
