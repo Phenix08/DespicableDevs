@@ -32,14 +32,17 @@ function injectVerifiedReviewButtons() {
     return;
     }
 
-    const jobRows = document.querySelectorAll(".row.border-bottom");
+    const jobRows = [
+    ...document.querySelectorAll('.row.border-bottom'),
+    ...Array.from(document.querySelectorAll('.row.pb-4.mb-4')).slice(-1)
+    ];
 
     jobRows.forEach(row => {
         const companyDiv = row.querySelector(".col-12.h3");
         const titleDiv = Array.from(row.querySelectorAll("div.col-12"))
-    .find(div => !div.classList.contains("h3") && !div.classList.contains("mb-0"));
+        .find(div => !div.classList.contains("h3") && !div.classList.contains("mb-0"));
 
-    const jobTitle = titleDiv ? titleDiv.textContent.trim() : "";
+        const jobTitle = titleDiv ? titleDiv.textContent.trim() : "";
         if (!companyDiv) return;
         if (!titleDiv) return;
 
