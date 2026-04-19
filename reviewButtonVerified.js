@@ -397,7 +397,8 @@ function showAddReviewModal(company, onSave) {
                     sub3: getSub3(),
                     sub4: getSub4(),
 
-                    comment: modalOverlay.querySelector('#review-comment')?.value || ""
+                    comment: modalOverlay.querySelector('#review-comment')?.value || "",
+                    anonymous: modalOverlay.querySelector('#anonymous-review')?.checked || false
                 };
 
                 // REQUIRED FIELDS CHECK
