@@ -73,6 +73,19 @@ function ensureInjectedStarLogoStyles() {
     const style = document.createElement('style');
     style.id = 'despicable-devs-star-logo-style';
     style.textContent = `
+        button.studentski-review-stars-btn {
+            color: #8a8a8a;
+            transition: color 0.18s ease;
+        }
+        button.studentski-review-stars-btn:hover {
+            color: #000000;
+        }
+        .extension-review-stars-badge {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-end;
+            line-height: 1;
+        }
         .extension-review-stars-logo {
             display: block;
             width: 8.58em;
@@ -88,6 +101,15 @@ function ensureInjectedStarLogoStyles() {
             mask-size: contain;
             mask-position: right center;
             vertical-align: middle;
+        }
+        .extension-review-stars-text {
+            display: block;
+            margin-top: 0.16em;
+            margin-right: 0.06em;
+            color: currentColor;
+            font-size: 1.05em;
+            letter-spacing: 0.09em;
+            font-weight: 700;
         }
     `;
     document.head.appendChild(style);
@@ -190,8 +212,8 @@ function injectButton() {
         wrapper.className = 'job-actions col-12 mb-1 ml-auto px-0 my-stars-div';
 
         const btn = document.createElement('button');
-        btn.className = 'btn btn-action ml-auto';
-        btn.innerHTML = '<span class="extension-review-stars-logo" aria-hidden="true"></span>';
+        btn.className = 'btn btn-action ml-auto studentski-review-stars-btn';
+        btn.innerHTML = '<span class="extension-review-stars-badge" aria-hidden="true"><span class="extension-review-stars-logo"></span><span class="extension-review-stars-text">★★★★★</span></span>';
         btn.style.fontSize = '16px';
 
         btn.onclick = (event) => {
