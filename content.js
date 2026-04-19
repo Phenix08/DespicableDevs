@@ -165,6 +165,18 @@ function buildInlineReviewStorageKey(jobData) {
     return `inline_review_${(jobData?.company || '').trim()}::${(jobData?.title || '').trim()}::${(jobData?.location || '').trim()}`;
 }
 
+function getLocalInlineReview(jobData) {
+    try {
+        const localKey = buildInlineReviewStorageKey(jobData);
+        const raw = localStorage.getItem(localKey);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (error) {
+        return null;
+    }
+}
+
 function reviewBelongsToCurrentUser(review, identity) {
     const currentEmail = normalizeIdentityValue(identity?.email);
     const currentUid = String(identity?.uid || '').trim();
@@ -199,22 +211,32 @@ function reviewBelongsToCurrentUser(review, identity) {
     return false;
 }
 
-function hasCurrentUserReviewed(summary, jobData) {
+function getCurrentUserReview(summary, jobData) {
     const reviews = Array.isArray(summary?.reviews) ? summary.reviews : [];
     const identity = getCurrentUserIdentity();
 
-    if (reviews.some((review) => reviewBelongsToCurrentUser(review, identity))) {
-        return true;
+    const matchedBackendReview = reviews.find((review) => reviewBelongsToCurrentUser(review, identity));
+    if (matchedBackendReview) {
+        return matchedBackendReview;
     }
 
-    const localKey = buildInlineReviewStorageKey(jobData);
-    return Boolean(localStorage.getItem(localKey));
+    return getLocalInlineReview(jobData);
+}
+
+function hasCurrentUserReviewed(summary, jobData) {
+    return Boolean(getCurrentUserReview(summary, jobData));
 }
 
 function updateReviewDisclosureLabel(modalOverlay, shouldEdit) {
     const summaryNode = modalOverlay.querySelector('.add-review-summary');
-    if (!summaryNode) return;
-    summaryNode.textContent = shouldEdit ? 'Edit your review' : 'Add your review';
+    if (summaryNode) {
+        summaryNode.textContent = shouldEdit ? 'Edit your review' : 'Add your review';
+    }
+
+    const inlineActionBtn = modalOverlay.querySelector('.inline-save-review-btn');
+    if (inlineActionBtn) {
+        inlineActionBtn.textContent = shouldEdit ? 'Save Changes' : 'Add Review';
+    }
 }
 
 function applyAverageStars(starsRoot, averageRating) {
@@ -877,7 +899,12 @@ function initializeInlineAutocomplete(container, inputId, dropdownId, options) {
 
 function setupInlineStars(modalOverlay, selector) {
     const container = modalOverlay.querySelector(selector);
-    if (!container) return () => 0;
+    if (!container) {
+        return {
+            get: () => 0,
+            set: () => {}
+        };
+    }
 
     const stars = container.querySelectorAll('span');
     let selected = 0;
@@ -897,7 +924,14 @@ function setupInlineStars(modalOverlay, selector) {
     });
 
     update();
-    return () => selected;
+    return {
+        get: () => selected,
+        set: (value) => {
+            const parsed = Number(value);
+            selected = Number.isFinite(parsed) ? Math.max(0, Math.min(5, Math.round(parsed))) : 0;
+            update();
+        }
+    };
 }
 
 async function postInlineReviewFromForm(reviewData) {
@@ -932,25 +966,78 @@ async function postInlineReviewFromForm(reviewData) {
     });
 }
 
-function wireInlineAddReview(modalOverlay, jobData) {
+function wireInlineAddReview(modalOverlay, jobData, existingReview = null) {
     const titleInput = modalOverlay.querySelector('#inline-job-title-input');
     const companyInput = modalOverlay.querySelector('#inline-company-input');
     const locationInput = modalOverlay.querySelector('#inline-location-input');
     const commentInput = modalOverlay.querySelector('#inline-review-comment');
 
-    if (titleInput && jobData.title) titleInput.value = jobData.title;
-    if (companyInput && jobData.company) companyInput.value = jobData.company;
-    if (locationInput && jobData.location) locationInput.value = jobData.location;
+    const resolvedTitle = (
+        existingReview?.title
+        || existingReview?.position
+        || existingReview?.jobTitle
+        || jobData.title
+        || ''
+    );
+    const resolvedCompany = (
+        existingReview?.company
+        || jobData.company
+        || ''
+    );
+    const resolvedLocation = (
+        existingReview?.location
+        || jobData.location
+        || ''
+    );
+
+    if (titleInput) titleInput.value = String(resolvedTitle).trim();
+    if (companyInput) companyInput.value = String(resolvedCompany).trim();
+    if (locationInput) locationInput.value = String(resolvedLocation).trim();
 
     if (titleInput) titleInput.readOnly = true;
     if (companyInput) companyInput.readOnly = true;
     if (locationInput) locationInput.readOnly = true;
 
-    const getOverall = setupInlineStars(modalOverlay, '[data-target="inline-overall"]');
-    const getSub1 = setupInlineStars(modalOverlay, '[data-target="inline-sub1"]');
-    const getSub2 = setupInlineStars(modalOverlay, '[data-target="inline-sub2"]');
-    const getSub3 = setupInlineStars(modalOverlay, '[data-target="inline-sub3"]');
-    const getSub4 = setupInlineStars(modalOverlay, '[data-target="inline-sub4"]');
+    const overallStars = setupInlineStars(modalOverlay, '[data-target="inline-overall"]');
+    const sub1Stars = setupInlineStars(modalOverlay, '[data-target="inline-sub1"]');
+    const sub2Stars = setupInlineStars(modalOverlay, '[data-target="inline-sub2"]');
+    const sub3Stars = setupInlineStars(modalOverlay, '[data-target="inline-sub3"]');
+    const sub4Stars = setupInlineStars(modalOverlay, '[data-target="inline-sub4"]');
+
+    if (existingReview) {
+        const pickValue = (...values) => values.find((value) => value !== undefined && value !== null && value !== '');
+
+        overallStars.set(pickValue(
+            existingReview?.rating,
+            existingReview?.overall_rating,
+            existingReview?.overall
+        ));
+        sub1Stars.set(pickValue(
+            existingReview?.work_environment,
+            existingReview?.sub1,
+            existingReview?.workEnvironment
+        ));
+        sub2Stars.set(pickValue(
+            existingReview?.location_rating,
+            existingReview?.sub2,
+            existingReview?.location,
+            existingReview?.locationRating
+        ));
+        sub3Stars.set(pickValue(
+            existingReview?.communication,
+            existingReview?.sub3
+        ));
+        sub4Stars.set(pickValue(
+            existingReview?.flexibility,
+            existingReview?.sub4
+        ));
+
+        if (commentInput) {
+            commentInput.value = existingReview?.comment || '';
+        }
+    } else if (commentInput) {
+        commentInput.value = '';
+    }
 
     const saveBtn = modalOverlay.querySelector('.inline-save-review-btn');
     if (!saveBtn) return;
@@ -962,11 +1049,11 @@ function wireInlineAddReview(modalOverlay, jobData) {
             company: companyInput?.value.trim() || '',
             jobTitle: titleInput?.value.trim() || '',
             location: locationInput?.value.trim() || '',
-            overall: getOverall(),
-            sub1: getSub1(),
-            sub2: getSub2(),
-            sub3: getSub3(),
-            sub4: getSub4(),
+            overall: overallStars.get(),
+            sub1: sub1Stars.get(),
+            sub2: sub2Stars.get(),
+            sub3: sub3Stars.get(),
+            sub4: sub4Stars.get(),
             comment: commentInput?.value.trim() || '',
             anonymous: false,
             user: getCurrentUserIdentity().email
@@ -1057,15 +1144,15 @@ function showReviewModal(jobData = {}) {
                 renderPopupAverageData(modalOverlay, summary);
                 renderPopupComments(modalOverlay, summary);
                 updateReviewDisclosureLabel(modalOverlay, hasCurrentUserReviewed(summary, jobData));
+                wireInlineAddReview(modalOverlay, jobData, getCurrentUserReview(summary, jobData));
             })
             .catch((error) => {
                 console.warn('Failed to load popup averages', error);
                 renderPopupAverageData(modalOverlay, null);
                 renderPopupComments(modalOverlay, null);
                 updateReviewDisclosureLabel(modalOverlay, hasCurrentUserReviewed(null, jobData));
+                wireInlineAddReview(modalOverlay, jobData, null);
             });
-
-        wireInlineAddReview(modalOverlay, jobData);
 
         document.getElementById('review-modal-close').onclick = () => {
             modalOverlay.remove();
