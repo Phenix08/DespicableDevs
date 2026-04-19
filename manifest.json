@@ -27,7 +27,7 @@
 
   "web_accessible_resources": [
     {
-      "resources": ["reviewPopup.html", "addReviewPopup.html", "auth.html", "popUpStyle.css", "popUpStyle-mjob.css"],
+      "resources": ["reviewPopup.html", "addReviewPopup.html", "auth.html", "popUpStyle.css", "popUpStyle-mjob.css", "Logos/LogoName.svg", "Logos/Logo.svg"],
       "matches": ["<all_urls>"]
     }
   ],

@@ -9,30 +9,132 @@
 
         <div class="rating-bars">
             <div class="rating-bar">
-                <div class="bar-label">Location</div>
+                <div class="bar-label">Work Environment</div>
                 <div class="bar">
                     <div class="bar-fill" style="width: 85%;"></div>
                 </div>
             </div>
             <div class="rating-bar">
-                <div class="bar-label">Application Process</div>
+                <div class="bar-label">Location</div>
                 <div class="bar">
                     <div class="bar-fill" style="width: 70%;"></div>
                 </div>
             </div>
             <div class="rating-bar">
-                <div class="bar-label">Team</div>
+                <div class="bar-label">Communication</div>
                 <div class="bar">
                     <div class="bar-fill" style="width: 90%;"></div>
                 </div>
             </div>
             <div class="rating-bar">
-                <div class="bar-label">Flexibility in Work Hours</div>
+                <div class="bar-label">Flexibility</div>
                 <div class="bar">
                     <div class="bar-fill" style="width: 75%;"></div>
                 </div>
             </div>
         </div>
+
+        <details class="add-review-disclosure">
+            <summary class="add-review-summary">Add your review</summary>
+            <div class="add-review-popup">
+                <div class="form-group mb-md-0">
+                    <label for="inline-job-title-input">Job Title</label>
+                    <div class="autocomplete-wrapper">
+                        <input
+                            type="text"
+                            id="inline-job-title-input"
+                            class="inline-review-input autocomplete-input"
+                            placeholder="Search job title..."
+                            autocomplete="off"
+                        />
+                        <div id="inline-job-title-dropdown" class="autocomplete-dropdown"></div>
+                    </div>
+                </div>
+
+                <div class="form-group mb-md-0">
+                    <label for="inline-company-input">Company</label>
+                    <div class="autocomplete-wrapper">
+                        <input
+                            type="text"
+                            id="inline-company-input"
+                            class="inline-review-input autocomplete-input"
+                            placeholder="Search company..."
+                            autocomplete="off"
+                        />
+                        <div id="inline-company-dropdown" class="autocomplete-dropdown"></div>
+                    </div>
+                </div>
+
+                <div class="form-group mb-md-0">
+                    <label for="inline-location-input">Location</label>
+                    <div class="autocomplete-wrapper">
+                        <input
+                            type="text"
+                            id="inline-location-input"
+                            class="inline-review-input autocomplete-input"
+                            placeholder="Search location..."
+                            autocomplete="off"
+                        />
+                        <div id="inline-location-dropdown" class="autocomplete-dropdown"></div>
+                    </div>
+                </div>
+
+                <div class="section-title">Overall Rating</div>
+                <div class="stars-row" data-target="inline-overall">
+                    <span data-value="1">★</span>
+                    <span data-value="2">★</span>
+                    <span data-value="3">★</span>
+                    <span data-value="4">★</span>
+                    <span data-value="5">★</span>
+                </div>
+
+                <div class="section-title">Detailed Ratings</div>
+                <div class="sub-ratings-grid">
+                    <div class="rating-box">
+                        <label>Work Environment</label>
+                        <div class="stars-row" data-target="inline-sub1">
+                            <span data-value="1">★</span><span data-value="2">★</span>
+                            <span data-value="3">★</span><span data-value="4">★</span>
+                            <span data-value="5">★</span>
+                        </div>
+                    </div>
+
+                    <div class="rating-box">
+                        <label>Location</label>
+                        <div class="stars-row" data-target="inline-sub2">
+                            <span data-value="1">★</span><span data-value="2">★</span>
+                            <span data-value="3">★</span><span data-value="4">★</span>
+                            <span data-value="5">★</span>
+                        </div>
+                    </div>
+
+                    <div class="rating-box">
+                        <label>Communication</label>
+                        <div class="stars-row" data-target="inline-sub3">
+                            <span data-value="1">★</span><span data-value="2">★</span>
+                            <span data-value="3">★</span><span data-value="4">★</span>
+                            <span data-value="5">★</span>
+                        </div>
+                    </div>
+
+                    <div class="rating-box">
+                        <label>Flexibility</label>
+                        <div class="stars-row" data-target="inline-sub4">
+                            <span data-value="1">★</span><span data-value="2">★</span>
+                            <span data-value="3">★</span><span data-value="4">★</span>
+                            <span data-value="5">★</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-title">Comment</div>
+                <textarea id="inline-review-comment" class="inline-review-comment" placeholder="Write your experience..."></textarea>
+
+                <div class="actions">
+                    <button class="btn-primary inline-save-review-btn">Add Review</button>
+                </div>
+            </div>
+        </details>
 
         <div class="comments-section">
             <div class="comments-title">Comments</div>
